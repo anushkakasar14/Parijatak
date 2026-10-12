@@ -1,0 +1,13 @@
+# Netlify hosts the frontend only (static files). The API in /server needs a Node host.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+# Let React Router handle page URLs such as /collection and /about
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

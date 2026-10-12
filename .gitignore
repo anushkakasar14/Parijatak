@@ -1,0 +1,16 @@
+node_modules
+dist
+*.local
+.DS_Store
+
+# Secrets and local data
+.env
+.env.*
+!.env.example
+data
+
+# Original shoot files (large) — optimised copies live in public/
+Shoot parijatak/
+
+# Local tooling
+.claude/
