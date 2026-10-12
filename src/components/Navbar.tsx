@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { whatsappMessages, whatsappUrl } from '../lib/whatsapp'
-import { MenuIcon, WhatsAppIcon } from './Icons'
+import { MenuIcon } from './Icons'
 import { Logo } from './Logo'
 import { MobileMenu } from './MobileMenu'
 
@@ -30,17 +29,7 @@ export function Navbar() {
           <Logo />
         </Link>
 
-        <div className="flex items-center justify-end">
-          <a
-            href={whatsappUrl(whatsappMessages.general)}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Chat with Parijatak on WhatsApp"
-            className="-mr-2.5 grid h-11 w-11 place-items-center transition-colors hover:text-teal md:h-12 md:w-12"
-          >
-            <WhatsAppIcon className="h-6 w-6 md:h-7 md:w-7" />
-          </a>
-        </div>
+        <div aria-hidden="true" />
       </div>
 
       <MobileMenu open={menuOpen} onClose={closeMenu} />

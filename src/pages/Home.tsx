@@ -66,6 +66,8 @@ export default function Home() {
           eyebrow="Our Craft"
           title="Craft that carries a story."
           image="/media/craft-swatch.jpg"
+          imageSide="right"
+          imageFirstOnMobile={false}
           imageAlt="A small hand-woven sample in pink and natural yarn, lying on a worktable"
           action={
             <Link to="/about" className="btn btn-outline">
