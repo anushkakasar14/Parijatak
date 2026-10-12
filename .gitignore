@@ -7,7 +7,7 @@ dist
 .env
 .env.*
 !.env.example
-data
+/data
 
 # Original shoot files (large) — optimised copies live in public/
 Shoot parijatak/
