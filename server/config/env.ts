@@ -1,10 +1,12 @@
 import { z } from 'zod'
 
 // Load .env if present. In production, variables usually come from the host instead.
-try {
-  process.loadEnvFile()
-} catch {
-  // No .env file — rely on the real environment.
+if (process.env.NODE_ENV !== 'test') {
+  try {
+    process.loadEnvFile()
+  } catch {
+    // No .env file — rely on the real environment.
+  }
 }
 
 const optional = z
@@ -17,8 +19,14 @@ const schema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
 
-  /** SQLite file location, e.g. file:./data/parijatk.db */
-  DATABASE_URL: z.string().trim().default('file:./data/parijatk.db'),
+  /**
+   * PostgreSQL connection string, e.g. postgresql://user:pass@host/db?sslmode=require
+   * Required in production. When empty in development, an embedded Postgres stored in
+   * ./data/pglite is used instead, so no database needs to be installed locally.
+   */
+  DATABASE_URL: optional.refine((v) => !v || /^(postgres(ql)?|memory):\/\//.test(v), {
+    message: 'DATABASE_URL must start with postgresql://',
+  }),
 
   /** Comma-separated list of origins allowed to call the API from a browser. */
   CORS_ORIGINS: z.string().trim().default('http://localhost:5173'),
@@ -34,8 +42,8 @@ const schema = z.object({
   GOOGLE_SHEETS_ID: optional,
   GOOGLE_SERVICE_ACCOUNT_EMAIL: optional,
   GOOGLE_PRIVATE_KEY: optional,
-  /** Where rows are appended. "A1" means the first tab; use e.g. "Enquiries!A1" for a named tab. */
-  GOOGLE_SHEETS_RANGE: z.string().trim().default('A1'),
+  /** Tab to write to. Leave empty to use the first tab of the spreadsheet. */
+  GOOGLE_SHEETS_TAB: optional,
 
   WHATSAPP_NUMBER: z
     .string()
@@ -48,14 +56,14 @@ const parsed = schema.safeParse(process.env)
 
 if (!parsed.success) {
   // Report which variables are wrong without printing their values.
-  const problems = parsed.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`)
-  console.error(`Invalid environment configuration:\n${problems.join('\n')}`)
-  process.exit(1)
+  const problems = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
+  throw new Error(`Invalid environment configuration — ${problems.join('; ')}`)
 }
 
 export const env = {
   ...parsed.data,
   isProduction: parsed.data.NODE_ENV === 'production',
+  isTest: parsed.data.NODE_ENV === 'test',
   corsOrigins: parsed.data.CORS_ORIGINS.split(',')
     .map((o) => o.trim())
     .filter(Boolean),

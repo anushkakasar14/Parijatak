@@ -1,20 +1,29 @@
 import { createApp } from './app.ts'
-import { db } from './config/database.ts'
+import { closeDb, getDb } from './config/database.ts'
 import { env } from './config/env.ts'
 import { googleSheetsService } from './services/googleSheetsService.ts'
-import { logger } from './utils/logger.ts'
+import { errorMessage, logger } from './utils/logger.ts'
+
+// Connect (and create tables) before accepting traffic, so problems show up at start-up.
+try {
+  await getDb()
+} catch (err) {
+  logger.error('Could not connect to the database', { error: errorMessage(err) })
+  process.exit(1)
+}
 
 const server = createApp().listen(env.PORT, () => {
   logger.info(`Parijatak API listening on port ${env.PORT}`, {
     environment: env.NODE_ENV,
-    googleSheets: googleSheetsService.isConfigured ? 'enabled' : 'not configured',
+    database: env.DATABASE_URL ? 'PostgreSQL' : 'embedded (development)',
+    googleSheets: googleSheetsService.isConfigured() ? 'enabled' : 'not configured',
     adminEndpoints: env.ADMIN_API_KEY ? 'enabled' : 'disabled (ADMIN_API_KEY not set)',
   })
 })
 
 function shutdown() {
-  server.close(() => {
-    db.close()
+  server.close(async () => {
+    await closeDb().catch(() => {})
     process.exit(0)
   })
 }

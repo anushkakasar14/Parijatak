@@ -1,24 +1,27 @@
 import { mkdirSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { DatabaseSync } from 'node:sqlite'
+import { resolve } from 'node:path'
+import pg from 'pg'
 import { env } from './env.ts'
 import { seedProducts } from './seedProducts.ts'
 
-function openDatabase(): DatabaseSync {
-  const location = env.DATABASE_URL.replace(/^file:/, '')
-  if (location === ':memory:') return new DatabaseSync(location)
-
-  const file = resolve(location)
-  mkdirSync(dirname(file), { recursive: true })
-  return new DatabaseSync(file)
+export interface QueryResult<T> {
+  rows: T[]
+  rowCount: number
 }
 
-export const db = openDatabase()
+/** Anything that can run a query: the database itself, or a transaction. */
+export interface Queryable {
+  query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<QueryResult<T>>
+}
 
-db.exec(`
-  PRAGMA journal_mode = WAL;
-  PRAGMA foreign_keys = ON;
+export interface Database extends Queryable {
+  /** Runs `fn` inside a transaction; rolls back if it throws. */
+  transaction<T>(fn: (tx: Queryable) => Promise<T>): Promise<T>
+  close(): Promise<void>
+}
 
+// Statements are run one at a time, split on ";" — keep semicolons out of SQL comments.
+const SCHEMA = `
   CREATE TABLE IF NOT EXISTS products (
     id                      TEXT PRIMARY KEY,
     name                    TEXT NOT NULL,
@@ -26,45 +29,141 @@ db.exec(`
     category                TEXT NOT NULL,
     description             TEXT NOT NULL,
     material                TEXT,
-    price                   REAL,
+    price                   NUMERIC(10, 2),
     image_url               TEXT NOT NULL,
-    additional_images       TEXT NOT NULL DEFAULT '[]',
-    customization_available INTEGER NOT NULL DEFAULT 1,
-    is_featured             INTEGER NOT NULL DEFAULT 0,
-    is_active               INTEGER NOT NULL DEFAULT 1,
-    created_at              TEXT NOT NULL,
-    updated_at              TEXT NOT NULL
+    additional_images       JSONB NOT NULL DEFAULT '[]',
+    customization_available BOOLEAN NOT NULL DEFAULT TRUE,
+    is_featured             BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active               BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT now()
   );
 
   CREATE TABLE IF NOT EXISTS enquiries (
-    id           TEXT PRIMARY KEY,
-    name         TEXT NOT NULL,
-    email        TEXT NOT NULL,
-    phone        TEXT NOT NULL,
-    inquiry_type TEXT NOT NULL,
-    message      TEXT NOT NULL,
-    product_id   TEXT REFERENCES products(id) ON DELETE SET NULL,
-    product_name TEXT,
-    source       TEXT NOT NULL DEFAULT 'website' CHECK (source IN ('website', 'whatsapp', 'other')),
-    status       TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'contacted', 'converted', 'closed')),
-    created_at   TEXT NOT NULL,
-    updated_at   TEXT NOT NULL
+    id              UUID PRIMARY KEY,
+    name            TEXT NOT NULL,
+    email           TEXT NOT NULL,
+    phone           TEXT NOT NULL,
+    inquiry_type    TEXT NOT NULL,
+    message         TEXT NOT NULL,
+    product_id      TEXT REFERENCES products(id) ON DELETE SET NULL,
+    product_name    TEXT,
+    source          TEXT NOT NULL DEFAULT 'website' CHECK (source IN ('website', 'whatsapp', 'other')),
+    status          TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'contacted', 'converted', 'closed')),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- Set once the row has been copied to Google Sheets. NULL means "still to sync".
+    sheet_synced_at TIMESTAMPTZ
   );
 
   CREATE INDEX IF NOT EXISTS enquiries_status_idx ON enquiries (status);
-  CREATE INDEX IF NOT EXISTS enquiries_created_at_idx ON enquiries (created_at);
-`)
+  CREATE INDEX IF NOT EXISTS enquiries_created_at_idx ON enquiries (created_at DESC);
+  CREATE INDEX IF NOT EXISTS enquiries_contact_idx ON enquiries (email, phone, created_at DESC);
+  CREATE INDEX IF NOT EXISTS enquiries_product_idx ON enquiries (product_id);
+`
 
-// Seed the catalogue on first run only.
-const { count } = db.prepare('SELECT COUNT(*) AS count FROM products').get() as { count: number }
+/** Production: a real PostgreSQL server reached through DATABASE_URL. */
+function connectPostgres(connectionString: string): Database {
+  const pool = new pg.Pool({
+    connectionString,
+    max: 3,
+    idleTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 8_000,
+  })
+  // An idle client dropping must not crash the process.
+  pool.on('error', () => {})
 
-if (count === 0) {
-  const insert = db.prepare(`
-    INSERT INTO products (id, name, slug, category, description, image_url, is_featured, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
-  `)
-  const now = new Date().toISOString()
-  for (const p of seedProducts) {
-    insert.run(p.id, p.name, p.slug, p.category, p.description, p.imageUrl, now, now)
+  const wrap = (runner: pg.Pool | pg.PoolClient): Queryable => ({
+    async query<T>(sql: string, params: unknown[] = []) {
+      const result = await runner.query(sql, params)
+      return { rows: result.rows as T[], rowCount: result.rowCount ?? result.rows.length }
+    },
+  })
+
+  return {
+    ...wrap(pool),
+    async transaction(fn) {
+      const client = await pool.connect()
+      try {
+        await client.query('BEGIN')
+        const value = await fn(wrap(client))
+        await client.query('COMMIT')
+        return value
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {})
+        throw err
+      } finally {
+        client.release()
+      }
+    },
+    close: () => pool.end(),
   }
+}
+
+/** Development and tests: Postgres embedded in the Node process — nothing to install. */
+async function connectEmbedded(dataDir?: string): Promise<Database> {
+  // The module name is kept in a variable so production bundlers do not include
+  // this development-only dependency.
+  const moduleName = '@electric-sql/pglite'
+  const { PGlite } = await import(moduleName)
+  if (dataDir) mkdirSync(dataDir, { recursive: true })
+  const db = new PGlite(dataDir)
+
+  type Runner = {
+    query(sql: string, params?: unknown[]): Promise<{ rows: unknown[]; affectedRows?: number }>
+  }
+  const wrap = (runner: Runner): Queryable => ({
+    async query<T>(sql: string, params: unknown[] = []) {
+      const result = await runner.query(sql, params)
+      return { rows: result.rows as T[], rowCount: result.affectedRows || result.rows.length }
+    },
+  })
+
+  return {
+    ...wrap(db),
+    transaction: (fn) => db.transaction((tx: Runner) => fn(wrap(tx))),
+    close: () => db.close(),
+  }
+}
+
+async function open(): Promise<Database> {
+  const url = env.DATABASE_URL
+
+  let db: Database
+  if (url?.startsWith('postgres')) db = connectPostgres(url)
+  else if (env.isProduction) throw new Error('DATABASE_URL is not set')
+  else db = await connectEmbedded(url === 'memory://' ? undefined : resolve('data', 'pglite'))
+
+  // Create tables on first use, and seed the catalogue if it is empty.
+  for (const statement of SCHEMA.split(';')) {
+    if (statement.trim()) await db.query(statement)
+  }
+  for (const p of seedProducts) {
+    await db.query(
+      `INSERT INTO products (id, name, slug, category, description, image_url, is_featured)
+       VALUES ($1, $2, $3, $4, $5, $6, TRUE)
+       ON CONFLICT (id) DO NOTHING`,
+      [p.id, p.name, p.slug, p.category, p.description, p.imageUrl],
+    )
+  }
+
+  return db
+}
+
+let connection: Promise<Database> | undefined
+
+/** Returns the shared database connection, opening and preparing it on first call. */
+export function getDb(): Promise<Database> {
+  connection ??= open().catch((err) => {
+    // Allow the next request to retry rather than caching the failure forever.
+    connection = undefined
+    throw err
+  })
+  return connection
+}
+
+export async function closeDb(): Promise<void> {
+  const current = connection
+  connection = undefined
+  if (current) await (await current).close()
 }

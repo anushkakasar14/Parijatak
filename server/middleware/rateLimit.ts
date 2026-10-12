@@ -1,4 +1,5 @@
-import { rateLimit } from 'express-rate-limit'
+import { ipKeyGenerator, rateLimit } from 'express-rate-limit'
+import { env } from '../config/env.ts'
 
 const limiter = (windowMinutes: number, limit: number, message: string) =>
   rateLimit({
@@ -7,6 +8,11 @@ const limiter = (windowMinutes: number, limit: number, message: string) =>
     standardHeaders: 'draft-8',
     legacyHeaders: false,
     message: { success: false, message },
+    // Netlify passes the visitor's address in its own header; elsewhere use Express's req.ip.
+    keyGenerator: (req) =>
+      ipKeyGenerator(req.get('x-nf-client-connection-ip') ?? req.ip ?? 'unknown'),
+    // The automated tests submit many enquiries from one address.
+    skip: () => env.isTest,
   })
 
 /** Baseline for every API route. */

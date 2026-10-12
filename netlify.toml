@@ -1,10 +1,20 @@
-# Netlify hosts the frontend only (static files). The API in /server needs a Node host.
+# Netlify serves the built site from dist/ and runs the API as a function.
 [build]
   command = "npm run build"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "24"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# The API (server/) runs inside the "api" function
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
 
 # Let React Router handle page URLs such as /collection and /about
 [[redirects]]

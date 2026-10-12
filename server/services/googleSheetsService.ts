@@ -2,28 +2,15 @@ import { JWT } from 'google-auth-library'
 import { env } from '../config/env.ts'
 import type { Enquiry } from '../models/enquiryModel.ts'
 
-const TIMEOUT_MS = 8000
+const TIMEOUT_MS = 6000
+const API = 'https://sheets.googleapis.com/v4/spreadsheets'
 
-const isConfigured = Boolean(
-  env.GOOGLE_SHEETS_ID && env.GOOGLE_SERVICE_ACCOUNT_EMAIL && env.googlePrivateKey,
-)
-
-// Created once; the client caches and refreshes its own access token.
-const client = isConfigured
-  ? new JWT({
-      email: env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      key: env.googlePrivateKey,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    })
-  : null
-
-/** Column order of the sheet. Add this as the header row of the spreadsheet. */
+/** Columns A–I of the "Parijatak Customer Enquiries" sheet. */
 export const SHEET_COLUMNS = [
-  'Created At',
-  'Enquiry ID',
+  'Date',
   'Name',
   'Email',
-  'Phone',
+  'Contact Number',
   'Inquiry Type',
   'Product',
   'Message',
@@ -31,19 +18,67 @@ export const SHEET_COLUMNS = [
   'Status',
 ] as const
 
+// Created on first use; the client caches and refreshes its own access token.
+let client: JWT | undefined
+function getClient(): JWT {
+  client ??= new JWT({
+    email: env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    key: env.googlePrivateKey,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  })
+  return client
+}
+
+/** A1 range within the configured tab (or the first tab when none is set). */
+function range(cells: string): string {
+  const tab = env.GOOGLE_SHEETS_TAB
+  return encodeURIComponent(tab ? `'${tab.replace(/'/g, "''")}'!${cells}` : cells)
+}
+
+/** e.g. "2026-10-12 15:42" in India Standard Time — readable and sortable. */
+function formatDate(iso: string): string {
+  return new Date(iso)
+    .toLocaleString('sv-SE', { timeZone: 'Asia/Kolkata', hour12: false })
+    .slice(0, 16)
+}
+
+let headerChecked = false
+
+/** Writes the header row if the sheet is still empty. Runs once per server start. */
+async function ensureHeader(): Promise<void> {
+  if (headerChecked) return
+
+  const { data } = await getClient().request<{ values?: string[][] }>({
+    url: `${API}/${env.GOOGLE_SHEETS_ID}/values/${range('A1:I1')}`,
+    timeout: TIMEOUT_MS,
+  })
+
+  if (!data.values?.length) {
+    await getClient().request({
+      url: `${API}/${env.GOOGLE_SHEETS_ID}/values/${range('A1:I1')}`,
+      method: 'PUT',
+      params: { valueInputOption: 'RAW' },
+      data: { values: [SHEET_COLUMNS] },
+      timeout: TIMEOUT_MS,
+    })
+  }
+  headerChecked = true
+}
+
 export const googleSheetsService = {
-  isConfigured,
+  isConfigured(): boolean {
+    return Boolean(env.GOOGLE_SHEETS_ID && env.GOOGLE_SERVICE_ACCOUNT_EMAIL && env.googlePrivateKey)
+  },
 
   /**
    * Appends one enquiry as a new row. Throws on failure — the caller decides what to do;
    * the database, not the sheet, is the source of truth.
    */
-  async appendEnquiry(enquiry: Enquiry): Promise<void> {
-    if (!client) return
+  async addEnquiryToGoogleSheet(enquiry: Enquiry): Promise<void> {
+    await ensureHeader()
 
     const row = [
-      enquiry.createdAt,
-      enquiry.id,
+      formatDate(enquiry.createdAt),
       enquiry.name,
       enquiry.email,
       enquiry.phone,
@@ -54,9 +89,8 @@ export const googleSheetsService = {
       enquiry.status,
     ]
 
-    const range = encodeURIComponent(env.GOOGLE_SHEETS_RANGE)
-    await client.request({
-      url: `https://sheets.googleapis.com/v4/spreadsheets/${env.GOOGLE_SHEETS_ID}/values/${range}:append`,
+    await getClient().request({
+      url: `${API}/${env.GOOGLE_SHEETS_ID}/values/${range('A:I')}:append`,
       method: 'POST',
       // RAW stores text exactly as sent, so user input can never run as a spreadsheet formula.
       params: { valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS' },

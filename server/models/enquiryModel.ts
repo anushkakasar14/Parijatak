@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { db } from '../config/database.ts'
+import { getDb } from '../config/database.ts'
+import type { Queryable } from '../config/database.ts'
 import type { enquirySources, enquiryStatuses } from '../utils/schemas.ts'
 
 export type EnquiryStatus = (typeof enquiryStatuses)[number]
@@ -18,6 +19,8 @@ export interface Enquiry {
   status: EnquiryStatus
   createdAt: string
   updatedAt: string
+  /** When the enquiry was copied to Google Sheets, or null if it has not been yet. */
+  sheetSyncedAt: string | null
 }
 
 interface EnquiryRow {
@@ -31,8 +34,9 @@ interface EnquiryRow {
   product_name: string | null
   source: EnquirySource
   status: EnquiryStatus
-  created_at: string
-  updated_at: string
+  created_at: Date
+  updated_at: Date
+  sheet_synced_at: Date | null
 }
 
 function toEnquiry(row: EnquiryRow): Enquiry {
@@ -47,8 +51,9 @@ function toEnquiry(row: EnquiryRow): Enquiry {
     productName: row.product_name,
     source: row.source,
     status: row.status,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: new Date(row.created_at).toISOString(),
+    updatedAt: new Date(row.updated_at).toISOString(),
+    sheetSyncedAt: row.sheet_synced_at ? new Date(row.sheet_synced_at).toISOString() : null,
   }
 }
 
@@ -57,65 +62,143 @@ export type NewEnquiry = Pick<
   'name' | 'email' | 'phone' | 'inquiryType' | 'message' | 'productId' | 'productName' | 'source'
 >
 
+export interface EnquiryFilters {
+  status?: EnquiryStatus
+  inquiryType?: string
+  source?: EnquirySource
+  productId?: string
+  /** true = only enquiries about a product; false = only general ones. */
+  hasProduct?: boolean
+  /** Free-text search across name, email, phone, message and product name. */
+  search?: string
+  from?: Date
+  to?: Date
+  limit: number
+  offset: number
+}
+
+/** Collapses whitespace and case so "Hello  there" and "hello there" compare equal. */
+const NORMALISED_MESSAGE = `lower(regexp_replace(btrim(message), '\\s+', ' ', 'g'))`
+
 export const enquiryModel = {
-  create(input: NewEnquiry): Enquiry {
-    const now = new Date().toISOString()
-    const enquiry: Enquiry = {
-      ...input,
-      id: randomUUID(),
-      status: 'new',
-      createdAt: now,
-      updatedAt: now,
-    }
-
-    db.prepare(
+  async create(input: NewEnquiry, tx?: Queryable): Promise<Enquiry> {
+    const db = tx ?? (await getDb())
+    const { rows } = await db.query<EnquiryRow>(
       `INSERT INTO enquiries
-         (id, name, email, phone, inquiry_type, message, product_id, product_name, source, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      enquiry.id,
-      enquiry.name,
-      enquiry.email,
-      enquiry.phone,
-      enquiry.inquiryType,
-      enquiry.message,
-      enquiry.productId,
-      enquiry.productName,
-      enquiry.source,
-      enquiry.status,
-      enquiry.createdAt,
-      enquiry.updatedAt,
+         (id, name, email, phone, inquiry_type, message, product_id, product_name, source)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING *`,
+      [
+        randomUUID(),
+        input.name,
+        input.email,
+        input.phone,
+        input.inquiryType,
+        input.message,
+        input.productId,
+        input.productName,
+        input.source,
+      ],
     )
-
-    return enquiry
+    return toEnquiry(rows[0])
   },
 
-  findById(id: string): Enquiry | null {
-    const row = db.prepare('SELECT * FROM enquiries WHERE id = ?').get(id) as unknown as
-      | EnquiryRow
-      | undefined
-    return row ? toEnquiry(row) : null
+  /**
+   * Finds an identical enquiry — same person, type, product and message — submitted
+   * within the last `windowMinutes`. Used to absorb accidental double submissions.
+   */
+  async findRecentDuplicate(
+    input: NewEnquiry,
+    windowMinutes: number,
+    tx?: Queryable,
+  ): Promise<Enquiry | null> {
+    const db = tx ?? (await getDb())
+    const { rows } = await db.query<EnquiryRow>(
+      `SELECT * FROM enquiries
+        WHERE email = $1
+          AND phone = $2
+          AND inquiry_type = $3
+          AND product_id IS NOT DISTINCT FROM $4
+          AND ${NORMALISED_MESSAGE} = lower(regexp_replace(btrim($5), '\\s+', ' ', 'g'))
+          AND created_at > now() - make_interval(mins => $6)
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [input.email, input.phone, input.inquiryType, input.productId, input.message, windowMinutes],
+    )
+    return rows[0] ? toEnquiry(rows[0]) : null
+  },
+
+  async findById(id: string): Promise<Enquiry | null> {
+    const db = await getDb()
+    const { rows } = await db.query<EnquiryRow>('SELECT * FROM enquiries WHERE id = $1', [id])
+    return rows[0] ? toEnquiry(rows[0]) : null
   },
 
   /** Newest first. */
-  list(options: { status?: EnquiryStatus; limit: number; offset: number }) {
-    const where = options.status ? 'WHERE status = ?' : ''
-    const params = options.status ? [options.status] : []
+  async list(filters: EnquiryFilters): Promise<{ enquiries: Enquiry[]; total: number }> {
+    const where: string[] = []
+    const params: unknown[] = []
+    const add = (clause: (placeholder: string) => string, value: unknown) => {
+      params.push(value)
+      where.push(clause(`$${params.length}`))
+    }
 
-    const rows = db
-      .prepare(`SELECT * FROM enquiries ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
-      .all(...params, options.limit, options.offset) as unknown as EnquiryRow[]
-    const { total } = db
-      .prepare(`SELECT COUNT(*) AS total FROM enquiries ${where}`)
-      .get(...params) as { total: number }
+    if (filters.status) add((p) => `status = ${p}`, filters.status)
+    if (filters.inquiryType) add((p) => `inquiry_type = ${p}`, filters.inquiryType)
+    if (filters.source) add((p) => `source = ${p}`, filters.source)
+    if (filters.productId) add((p) => `product_id = ${p}`, filters.productId)
+    if (filters.hasProduct !== undefined)
+      where.push(filters.hasProduct ? 'product_id IS NOT NULL' : 'product_id IS NULL')
+    if (filters.from) add((p) => `created_at >= ${p}`, filters.from)
+    if (filters.to) add((p) => `created_at <= ${p}`, filters.to)
+    if (filters.search) {
+      // Escape LIKE wildcards so the search text is matched literally.
+      const term = `%${filters.search.replace(/[\\%_]/g, '\\$&')}%`
+      add(
+        (p) =>
+          `(name ILIKE ${p} OR email ILIKE ${p} OR phone ILIKE ${p} OR message ILIKE ${p} OR product_name ILIKE ${p})`,
+        term,
+      )
+    }
 
-    return { enquiries: rows.map(toEnquiry), total }
+    const condition = where.length ? `WHERE ${where.join(' AND ')}` : ''
+    const db = await getDb()
+
+    const { rows } = await db.query<EnquiryRow>(
+      `SELECT * FROM enquiries ${condition}
+        ORDER BY created_at DESC
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, filters.limit, filters.offset],
+    )
+    const count = await db.query<{ total: number }>(
+      `SELECT COUNT(*)::int AS total FROM enquiries ${condition}`,
+      params,
+    )
+
+    return { enquiries: rows.map(toEnquiry), total: count.rows[0].total }
   },
 
-  updateStatus(id: string, status: EnquiryStatus): Enquiry | null {
-    const result = db
-      .prepare('UPDATE enquiries SET status = ?, updated_at = ? WHERE id = ?')
-      .run(status, new Date().toISOString(), id)
-    return result.changes ? this.findById(id) : null
+  async updateStatus(id: string, status: EnquiryStatus): Promise<Enquiry | null> {
+    const db = await getDb()
+    const { rows } = await db.query<EnquiryRow>(
+      'UPDATE enquiries SET status = $1, updated_at = now() WHERE id = $2 RETURNING *',
+      [status, id],
+    )
+    return rows[0] ? toEnquiry(rows[0]) : null
+  },
+
+  async markSheetSynced(id: string): Promise<void> {
+    const db = await getDb()
+    await db.query('UPDATE enquiries SET sheet_synced_at = now() WHERE id = $1', [id])
+  },
+
+  /** Enquiries not yet in Google Sheets, oldest first. */
+  async findUnsynced(limit: number): Promise<Enquiry[]> {
+    const db = await getDb()
+    const { rows } = await db.query<EnquiryRow>(
+      'SELECT * FROM enquiries WHERE sheet_synced_at IS NULL ORDER BY created_at LIMIT $1',
+      [limit],
+    )
+    return rows.map(toEnquiry)
   },
 }

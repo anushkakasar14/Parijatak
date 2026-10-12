@@ -15,17 +15,17 @@ function toPublicProduct({ isActive: _isActive, ...product }: Product) {
 }
 
 export const productController = {
-  list(req: Request, res: Response) {
+  async list(req: Request, res: Response) {
     const { featured, category } = listProductsSchema.parse(req.query)
-    const products = productModel.findActive({
+    const products = await productModel.findActive({
       featured: featured === undefined ? undefined : featured === 'true',
       category,
     })
     res.json({ success: true, data: products.map(toPublicProduct) })
   },
 
-  get(req: Request<{ id: string }>, res: Response) {
-    const product = productModel.findActiveByIdOrSlug(req.params.id)
+  async get(req: Request<{ id: string }>, res: Response) {
+    const product = await productModel.findActiveByIdOrSlug(req.params.id)
     if (!product) throw new HttpError(404, 'Product not found')
     res.json({ success: true, data: toPublicProduct(product) })
   },

@@ -3,29 +3,54 @@
 Website and API for Parijatak Home Textile Studio.
 
 - **Frontend** (`/src`) — React, Vite, TypeScript, Tailwind CSS.
-- **Backend** (`/server`) — Node.js, Express, SQLite. Stores enquiries and products, and copies each enquiry to a Google Sheet.
+- **Backend** (`/server`) — Node.js, Express, PostgreSQL. Stores enquiries and products, and copies each enquiry to a Google Sheet.
+- **Hosting** — Netlify serves the site and runs the API as a function (`/netlify/functions/api.ts`).
 
 ## Contents
 
-- [Setup](#setup)
+- [How an enquiry flows](#how-an-enquiry-flows)
+- [Local development](#local-development)
 - [Environment variables](#environment-variables)
-- [Database](#database)
+- [Database setup](#database-setup)
+- [Google Cloud and Google Sheets setup](#google-cloud-and-google-sheets-setup)
+- [Production deployment (Netlify)](#production-deployment-netlify)
 - [API](#api)
-- [Google Sheets setup](#google-sheets-setup)
-- [WhatsApp](#whatsapp)
+- [Tests](#tests)
 - [Security](#security)
-- [Deployment](#deployment)
 - [Project structure](#project-structure)
 
-## Setup
+## How an enquiry flows
 
-Requires **Node.js 24 or newer**. The server runs TypeScript directly on Node and uses Node's built-in SQLite, so there is no server build step and no database to install.
+```
+Contact form
+   ↓  POST /api/enquiries
+Validation and sanitization
+   ↓
+Duplicate check
+   ↓
+Database (saved and committed)
+   ↓
+Google Sheets (new row)
+   ↓
+Success response
+```
+
+The database is the source of truth. The enquiry is committed **before** Google Sheets is contacted, so if Sheets is slow, down or misconfigured:
+
+- the enquiry stays in the database,
+- the visitor still sees the success message,
+- the failure is logged with the enquiry's id (never its contents), and
+- the row stays flagged as "not synced", so it can be pushed later with [`POST /api/enquiries/sync-sheet`](#post-apienquiriessync-sheet).
+
+**Duplicate protection.** If the same person (same email and phone) sends the same inquiry type, product and message again within 10 minutes, it is treated as an accidental double submit: they get the same success message, but no second record or sheet row is created. Letter case and spacing differences are ignored. Any change to the message, type or product makes it a new enquiry, and so does the same message after 10 minutes.
+
+## Local development
+
+Requires **Node.js 24 or newer**. Nothing else needs installing — with `DATABASE_URL` empty, the API uses a Postgres database embedded in the Node process and stored in `./data/pglite`.
 
 ```bash
 npm install
 ```
-
-Create your local configuration (the defaults work as-is for development):
 
 ```bash
 cp .env.example .env
@@ -41,35 +66,36 @@ npm run server
 npm run dev
 ```
 
-The site is at `http://localhost:5173` and the API at `http://localhost:4000`. In development Vite forwards `/api/*` to the API, so the contact form works without extra configuration.
+The site is at `http://localhost:5173` and the API at `http://localhost:4000`. Vite forwards `/api/*` to the API, so the contact form works straight away.
 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` | Frontend dev server |
 | `npm run server` | API with auto-restart on file changes |
-| `npm start` | API for production (also serves the built site from `dist/`) |
+| `npm start` | API as a standalone server (also serves the built site from `dist/`) |
 | `npm run build` | Type-check and build the frontend into `dist/` |
+| `npm test` | Run the API tests |
 | `npm run typecheck:server` | Type-check the server |
 
 ## Environment variables
 
-Set these in `.env` locally and in your host's dashboard in production. **Never commit `.env`** — it is already in `.gitignore`.
+Set these in `.env` locally and in **Netlify → Site configuration → Environment variables** in production. **Never commit `.env`** — it is in `.gitignore`. None of these values are ever sent to the browser.
 
 | Variable | Required | Default | Purpose |
 | --- | --- | --- | --- |
 | `NODE_ENV` | in production | `development` | Set to `production` when deployed |
-| `PORT` | no | `4000` | Port the API listens on |
-| `DATABASE_URL` | no | `file:./data/parijatk.db` | Location of the SQLite file |
-| `CORS_ORIGINS` | in production | `http://localhost:5173` | Comma-separated origins allowed to call the API, e.g. `https://parijatak.com,https://www.parijatak.com` |
-| `TRUST_PROXY` | in production | `0` | Number of reverse proxies in front of the server. Usually `1` on a hosting platform. Rate limiting needs this to see real visitor IPs |
-| `ADMIN_API_KEY` | for admin endpoints | — | Secret for `GET`/`PATCH /api/enquiries`. Minimum 24 characters. While empty, those endpoints are disabled |
+| `DATABASE_URL` | in production | — | PostgreSQL connection string, `postgresql://user:password@host/db?sslmode=require`. Empty in development means the embedded database |
 | `GOOGLE_SHEETS_ID` | for Sheets | — | The spreadsheet's ID (from its URL) |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | for Sheets | — | Service account's `client_email` |
 | `GOOGLE_PRIVATE_KEY` | for Sheets | — | Service account's `private_key` |
-| `GOOGLE_SHEETS_RANGE` | no | `A1` | Where rows are appended. `A1` is the first tab; use `Enquiries!A1` for a tab named "Enquiries" |
-| `WHATSAPP_NUMBER` | no | `917385087502` | Digits only, with country code. Used for the WhatsApp links returned with products |
+| `GOOGLE_SHEETS_TAB` | no | first tab | Name of the tab to write to |
+| `ADMIN_API_KEY` | for admin endpoints | — | Secret for the admin endpoints. Minimum 24 characters. While empty, those endpoints are disabled |
+| `CORS_ORIGINS` | if the API is on another domain | `http://localhost:5173` | Comma-separated origins allowed to call the API. Not needed when site and API share a domain, as on Netlify |
+| `TRUST_PROXY` | standalone server only | `0` | Number of reverse proxies in front of the server |
+| `PORT` | no | `4000` | Port for the standalone server |
+| `WHATSAPP_NUMBER` | no | `917385087502` | Digits only, with country code |
 
-Frontend only: set `VITE_API_URL` (e.g. `https://api.parijatak.com`) at build time **only if** the API is hosted on a different domain from the site. Nothing secret may ever go in a `VITE_` variable — those are shipped to the browser.
+Frontend only: `VITE_API_URL` is needed **only if** the API is hosted on a different domain from the site. Nothing secret may ever go in a `VITE_` variable — those are shipped to the browser.
 
 Generate an admin key:
 
@@ -77,34 +103,114 @@ Generate an admin key:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-## Database
+## Database setup
 
-SQLite, stored in a single file. The tables are created automatically the first time the server starts, and the three launch products are inserted if the products table is empty. There is nothing to run by hand.
+Production uses **PostgreSQL**. Any provider works; [Neon](https://neon.tech) has a free tier and suits Netlify well.
+
+1. Create a Postgres database with your provider.
+2. Copy its connection string. On Neon, use the **pooled** connection string (the host contains `-pooler`) — it is designed for serverless functions.
+3. Set it as `DATABASE_URL` in Netlify (see [deployment](#production-deployment-netlify)).
+
+That is all. The tables and indexes are created automatically the first time the API connects, and the three launch products are inserted if they are missing. There are no migration commands to run.
 
 **`enquiries`**
 
 | Field | Notes |
 | --- | --- |
 | `id` | UUID |
-| `name`, `email`, `phone` | Phone is normalised to `+91XXXXXXXXXX` |
+| `name`, `email`, `phone` | Phone is normalised to `+91XXXXXXXXXX`; email is lower-cased |
 | `inquiryType` | One of the six types listed under [POST /api/enquiries](#post-apienquiries) |
 | `message` | |
 | `productId`, `productName` | Set when the enquiry is about a product, otherwise `null` |
 | `source` | `website` \| `whatsapp` \| `other` |
 | `status` | `new` \| `contacted` \| `converted` \| `closed` |
-| `createdAt`, `updatedAt` | ISO 8601, UTC |
+| `createdAt`, `updatedAt` | Timestamps (UTC) |
+| `sheetSyncedAt` | When the row reached Google Sheets; `null` until then |
 
-**`products`**
+**`products`** — `id`, `name`, `slug`, `category`, `description`, `material`, `price`, `imageUrl`, `additionalImages`, `customizationAvailable`, `isFeatured`, `isActive`, `createdAt`, `updatedAt`. Inactive products are never returned by the API.
 
-`id`, `name`, `slug`, `category`, `description`, `material`, `price`, `imageUrl`, `additionalImages`, `customizationAvailable`, `isFeatured`, `isActive`, `createdAt`, `updatedAt`.
+**Backups.** Enquiries live in this database, so turn on your provider's automatic backups.
 
-`material` and `price` are `null` for the seeded products until Parijatak confirms them. Products with `isActive = false` are never returned by the API.
+## Google Cloud and Google Sheets setup
 
-**Backups.** The database is the source of truth for enquiries. Back up the file named in `DATABASE_URL` regularly (plus its `-wal` companion file if present).
+Optional. Leave the three `GOOGLE_*` variables empty and the API simply skips the sheet.
+
+### 1. Google Cloud project and Sheets API
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) and create a project (or pick an existing one).
+2. Go to **APIs & Services → Library**, find **Google Sheets API** and click **Enable**.
+
+### 2. Service account
+
+1. Go to **APIs & Services → Credentials → Create credentials → Service account**. Give it any name; no roles are needed.
+2. Open the new service account → **Keys → Add key → Create new key → JSON**. A JSON file downloads.
+3. Keep that file private. Do **not** put it in this project folder, the frontend, `public/`, or GitHub.
+
+### 3. The sheet
+
+1. Create a Google Sheet named **Parijatak Customer Enquiries**.
+2. Click **Share** and add the service account's email address (the `client_email` in the JSON file) as an **Editor**.
+3. You do not need to type the headings — the API writes this header row the first time it adds an enquiry to an empty sheet:
+
+   | A | B | C | D | E | F | G | H | I |
+   | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+   | Date | Name | Email | Contact Number | Inquiry Type | Product | Message | Source | Status |
+
+   Dates are written in India Standard Time, e.g. `2026-10-12 15:42`.
+
+### 4. Environment variables
+
+- `GOOGLE_SHEETS_ID` — the long ID in the sheet's URL: `docs.google.com/spreadsheets/d/<THIS PART>/edit`
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL` — `client_email` from the JSON file
+- `GOOGLE_PRIVATE_KEY` — `private_key` from the JSON file, including the `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----` lines. Paste it exactly as it appears in the JSON, with its `\n` sequences. In a local `.env` file, wrap it in double quotes on one line:
+
+  ```
+  GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END PRIVATE KEY-----\n"
+  ```
+
+### 5. Check it
+
+Open `/api/health` — it should report `"googleSheets": "configured"`. Submit a test enquiry and look for the new row.
+
+If no row appears, check the function log for `Google Sheets sync failed`; the message says why. The usual causes are the sheet not being shared with the service account, or the Sheets API not being enabled. Once fixed, call `POST /api/enquiries/sync-sheet` to push everything that was missed.
+
+Note: a later status change (`PATCH /api/enquiries/:id`) is **not** copied to the sheet. Each enquiry is written once, when it is created.
+
+## Production deployment (Netlify)
+
+The repository is already set up for Netlify through `netlify.toml`: every push to `main` builds the site and deploys the API as a function at `/api/*`.
+
+1. **Database** — create the Postgres database ([Database setup](#database-setup)).
+2. **Google** — create the service account and sheet ([Google setup](#google-cloud-and-google-sheets-setup)).
+3. **Environment variables** — in Netlify, go to **Site configuration → Environment variables** and add:
+
+   | Variable | Value |
+   | --- | --- |
+   | `NODE_ENV` | `production` |
+   | `DATABASE_URL` | your Postgres connection string |
+   | `GOOGLE_SHEETS_ID` | the sheet's ID |
+   | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | the service account email |
+   | `GOOGLE_PRIVATE_KEY` | the private key |
+   | `ADMIN_API_KEY` | a long random string |
+
+4. **Redeploy** — **Deploys → Trigger deploy → Deploy site**. Environment variable changes only take effect after a new deploy.
+5. **Verify** — open `https://your-site/api/health`. A healthy setup returns:
+
+   ```json
+   { "success": true, "data": { "status": "ok", "database": "ok", "googleSheets": "configured" } }
+   ```
+
+   Then submit the contact form and confirm the enquiry appears in the sheet.
+
+Function logs are under **Logs → Functions → api** in Netlify.
+
+**Rate limiting on Netlify.** Limits are counted in the memory of each running function instance. Netlify may run several instances and restarts them when idle, so the limits are a deterrent rather than a strict guarantee. Duplicate protection is enforced in the database and is not affected.
+
+**Other hosts.** The same code runs as an ordinary Node server with `npm start` (Node 24+) on any host. Set `TRUST_PROXY=1` behind a platform proxy, and `CORS_ORIGINS` if the site is on a different domain.
 
 ## API
 
-Base URL: `http://localhost:4000` in development.
+Base URL: `http://localhost:4000` in development; your site's own domain in production.
 
 Every response is JSON in one of two shapes:
 
@@ -120,14 +226,16 @@ Validation errors (status `400`) also include an `errors` object mapping each fi
 
 | Method | Path | Access | Purpose |
 | --- | --- | --- | --- |
-| `GET` | `/api/health` | Public | Uptime check |
+| `GET` | `/api/health` | Public | Reports whether the database and Sheets are ready |
 | `GET` | `/api/products` | Public | List active products |
 | `GET` | `/api/products/:id` | Public | One product, by id or slug |
 | `POST` | `/api/enquiries` | Public, rate limited | Submit an enquiry |
-| `GET` | `/api/enquiries` | Admin | List enquiries |
+| `GET` | `/api/enquiries` | Admin | List, filter and search enquiries |
+| `GET` | `/api/enquiries/:id` | Admin | One enquiry |
 | `PATCH` | `/api/enquiries/:id` | Admin | Update an enquiry's status |
+| `POST` | `/api/enquiries/sync-sheet` | Admin | Push enquiries that missed Google Sheets |
 
-Admin endpoints need the header `Authorization: Bearer <ADMIN_API_KEY>`.
+Admin endpoints need the header `Authorization: Bearer <ADMIN_API_KEY>`. They are the backend for a future admin dashboard; no dashboard UI exists yet.
 
 ### GET /api/products
 
@@ -137,41 +245,13 @@ Optional query parameters: `featured=true|false`, `category=<name>`.
 curl "http://localhost:4000/api/products?featured=true"
 ```
 
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "bed-linens",
-      "name": "Bed Linens",
-      "slug": "bed-linens",
-      "category": "Bedroom",
-      "description": "Bed linens rooted in Indian traditional craftsmanship…",
-      "material": null,
-      "price": null,
-      "imageUrl": "/media/product-bed-linens.svg",
-      "additionalImages": [],
-      "customizationAvailable": true,
-      "isFeatured": true,
-      "createdAt": "2026-10-12T09:15:41.334Z",
-      "updatedAt": "2026-10-12T09:15:41.334Z",
-      "whatsappEnquiryUrl": "https://wa.me/917385087502?text=Hello%20Parijatak…"
-    }
-  ]
-}
-```
+Each product includes a ready-made `whatsappEnquiryUrl`.
 
 ### GET /api/products/:id
 
 `:id` may be the product's id or its slug. Returns `404` if the product does not exist or is inactive.
 
-```bash
-curl http://localhost:4000/api/products/throws
-```
-
 ### POST /api/enquiries
-
-Used by the contact form and for product enquiries.
 
 | Field | Required | Rules |
 | --- | --- | --- |
@@ -195,7 +275,7 @@ curl -X POST http://localhost:4000/api/enquiries \
   }'
 ```
 
-Success — `201`:
+Success — `201` for a new enquiry, `200` when it was recognised as a duplicate:
 
 ```json
 { "success": true, "message": "Enquiry submitted successfully" }
@@ -213,14 +293,23 @@ Validation failure — `400`:
 
 Limited to 5 submissions per 15 minutes per IP address; further requests get `429`.
 
-What happens on submit: the input is validated and cleaned → saved to the database → appended to the Google Sheet → success is returned. If the Google Sheets step fails, the enquiry is still saved and the customer still sees success; the failure is written to the server log with the enquiry's id so the row can be added to the sheet by hand.
-
 ### GET /api/enquiries
 
-Admin. Newest first. Optional query parameters: `status`, `limit` (1–100, default 50), `offset` (default 0).
+Admin. Newest first.
+
+| Query parameter | Meaning |
+| --- | --- |
+| `status` | `new`, `contacted`, `converted` or `closed` |
+| `inquiryType` | One of the six inquiry types |
+| `source` | `website`, `whatsapp` or `other` |
+| `productId` | Enquiries about one product |
+| `hasProduct` | `true` for product enquiries only, `false` for general ones |
+| `search` | Text to find in name, email, phone, message or product name |
+| `from`, `to` | Date range, e.g. `2026-10-01` |
+| `limit`, `offset` | Paging; `limit` is 1–100, default 50 |
 
 ```bash
-curl "http://localhost:4000/api/enquiries?status=new&limit=20" \
+curl "http://localhost:4000/api/enquiries?status=new&hasProduct=true&search=throw" \
   -H "Authorization: Bearer $ADMIN_API_KEY"
 ```
 
@@ -240,10 +329,11 @@ curl "http://localhost:4000/api/enquiries?status=new&limit=20" \
       "source": "website",
       "status": "new",
       "createdAt": "2026-10-12T09:15:46.189Z",
-      "updatedAt": "2026-10-12T09:15:46.189Z"
+      "updatedAt": "2026-10-12T09:15:46.189Z",
+      "sheetSyncedAt": "2026-10-12T09:15:47.020Z"
     }
   ],
-  "pagination": { "total": 1, "limit": 20, "offset": 0 }
+  "pagination": { "total": 1, "limit": 50, "offset": 0 }
 }
 ```
 
@@ -258,7 +348,15 @@ curl -X PATCH http://localhost:4000/api/enquiries/d1d16ac3-fd18-4ddd-ad21-801698
   -d '{ "status": "contacted" }'
 ```
 
-Returns the updated enquiry. A status change is **not** pushed to the Google Sheet — the sheet receives each enquiry once, when it is created.
+### POST /api/enquiries/sync-sheet
+
+Admin. Sends up to 100 enquiries that are not yet in Google Sheets, oldest first, and reports the outcome:
+
+```json
+{ "success": true, "data": { "synced": 3, "failed": 0 } }
+```
+
+Run it after fixing a Sheets problem. It is safe to run repeatedly — rows already synced are skipped.
 
 ### Status codes
 
@@ -271,78 +369,38 @@ Returns the updated enquiry. A status change is **not** pushed to the Google She
 | `413` | Request body over 10 KB |
 | `429` | Rate limit reached |
 | `500` | Unexpected server error (details are logged, never returned) |
-| `503` | Admin endpoints called while `ADMIN_API_KEY` is not set |
+| `503` | Service not ready: database unreachable, or an admin/Sheets feature that is not configured |
 
-## Google Sheets setup
+## Tests
 
-Optional. Leave the three `GOOGLE_*` variables empty and the API simply skips the sheet.
+```bash
+npm test
+```
 
-1. In [Google Cloud Console](https://console.cloud.google.com/), create a project (or pick an existing one).
-2. Go to **APIs & Services → Library**, find **Google Sheets API** and enable it.
-3. Go to **APIs & Services → Credentials → Create credentials → Service account**. Give it any name; no roles are needed.
-4. Open the new service account → **Keys → Add key → Create new key → JSON**. A JSON file downloads. Keep it private and do not put it in this project folder.
-5. Create a Google Sheet. In row 1, add these headers in this order:
-
-   `Created At` · `Enquiry ID` · `Name` · `Email` · `Phone` · `Inquiry Type` · `Product` · `Message` · `Source` · `Status`
-
-6. Click **Share** on the sheet and add the service account's email address (the `client_email` in the JSON file) as an **Editor**.
-7. Fill in `.env`:
-   - `GOOGLE_SHEETS_ID` — the long ID in the sheet's URL: `docs.google.com/spreadsheets/d/<THIS PART>/edit`
-   - `GOOGLE_SERVICE_ACCOUNT_EMAIL` — `client_email` from the JSON file
-   - `GOOGLE_PRIVATE_KEY` — `private_key` from the JSON file, on one line, in double quotes, keeping the `\n` sequences exactly as they appear:
-
-     ```
-     GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END PRIVATE KEY-----\n"
-     ```
-
-8. Restart the server. The startup log line shows `"googleSheets":"enabled"`. Submit a test enquiry and check that a row appears.
-
-If rows do not appear, look in the server log for `Google Sheets sync failed` — the message says why (most often the sheet has not been shared with the service account, or the Sheets API is not enabled).
-
-## WhatsApp
-
-WhatsApp is a frontend conversion channel: "Enquire on WhatsApp" opens `https://wa.me/917385087502?text=…` with a pre-filled message. The backend holds no WhatsApp credentials and sends no messages. It only builds the same link (`whatsappEnquiryUrl`) into product responses, using `WHATSAPP_NUMBER`.
-
-Enquiries that begin on WhatsApp are therefore not recorded automatically. The `whatsapp` value of `source` is there for a future admin tool to log them by hand.
+The tests start the real API against an in-memory Postgres and cover: a valid enquiry, invalid email, invalid phone, missing name, missing inquiry type, database failure, Google Sheets failure and later re-sync, duplicate and simultaneous submissions, and the admin filter/search/status endpoints. Google Sheets is replaced by a stand-in, so no credentials or network access are needed.
 
 ## Security
 
 - **Validation and sanitization** — every input is validated with a schema; control characters and HTML tags are stripped; unknown fields are ignored.
-- **SQL injection** — all queries use bound parameters.
+- **SQL injection** — all queries use bound parameters; search text is escaped so it cannot act as a pattern.
 - **Spreadsheet formula injection** — rows are written to Google Sheets as raw text, so a message beginning with `=` cannot run as a formula.
 - **Rate limiting** — 300 requests / 15 min per IP across the API, 5 / 15 min on enquiry submission, 60 / 15 min on admin endpoints.
-- **CORS** — only origins listed in `CORS_ORIGINS` may call the API from a browser.
-- **Secure headers** — set by Helmet (Content-Security-Policy, HSTS, no-sniff and others).
+- **CORS** — only origins listed in `CORS_ORIGINS` may call the API from another site.
+- **Secure headers** — set by Helmet.
 - **Admin access** — a bearer key compared in constant time; endpoints are closed while no key is configured.
 - **Errors** — clients receive a generic message; stack traces and database details stay in the server log.
-- **Secrets** — read from environment variables only; none are present in frontend code.
+- **Secrets** — the database URL, Google credentials and admin key are read from environment variables on the server only. None are in the frontend, `public/`, or the repository.
 
-The admin key is a single shared secret, suitable for scripts and a first internal tool. Before building a multi-user admin panel, replace it with real user accounts and sessions.
+The admin key is a single shared secret, suitable for scripts and a first internal tool. Before building a multi-user admin dashboard, replace it with real user accounts and sessions.
 
-## Deployment
-
-Requirements:
-
-- **Node.js 24+**.
-- **A persistent disk** for the SQLite file. On platforms whose filesystem is wiped on every deploy or restart (most serverless and free container tiers), enquiries would be lost — attach a persistent volume and point `DATABASE_URL` at it, e.g. `file:/var/data/parijatk.db`.
-- **A single server instance.** SQLite and the in-memory rate limiter are not shared between instances.
-- **HTTPS**, provided by the host or a reverse proxy.
-
-Simplest setup — one service serving both the site and the API:
-
-1. Build command: `npm install && npm run build`
-2. Start command: `npm start`
-3. Set the environment variables: `NODE_ENV=production`, `TRUST_PROXY=1`, `CORS_ORIGINS=https://your-domain`, `DATABASE_URL`, `ADMIN_API_KEY`, and the `GOOGLE_*` values.
-
-When `dist/` exists, the server serves the built site and handles page routes such as `/collection`, so no separate static hosting is needed.
-
-Alternative — site on a static host, API elsewhere: build the frontend with `VITE_API_URL=https://your-api-domain`, add the site's origin to `CORS_ORIGINS` on the API, and configure the static host to serve `index.html` for all routes.
+WhatsApp remains a frontend channel: "Enquire on WhatsApp" opens a `wa.me` link with a pre-filled message. The backend holds no WhatsApp credentials, and enquiries that begin on WhatsApp are not recorded automatically.
 
 ## Project structure
 
 ```
+netlify/functions/api.ts   Runs the API on Netlify
 server/
-  index.ts           Starts the HTTP server
+  index.ts           Standalone server entry point
   app.ts             Express app: security middleware, routes, error handling
   config/            Environment parsing, database connection, schema, seed data
   routes/            URL → controller mapping
@@ -351,6 +409,7 @@ server/
   models/            Database queries for products and enquiries
   middleware/        Rate limiting, admin auth, error handler
   utils/             Validation schemas, sanitizers, logger, HttpError
+  tests/             API tests
 src/                 Frontend (see src/config/site.ts for brand settings)
-public/media/        Images
+public/media/        Images and video
 ```

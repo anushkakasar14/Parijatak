@@ -57,6 +57,25 @@ export const updateEnquirySchema = z.strictObject({
 
 export const listEnquiriesSchema = z.object({
   status: z.enum(enquiryStatuses).optional(),
+  inquiryType: z.enum(inquiryTypes).optional(),
+  source: z.enum(enquirySources).optional(),
+  productId: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9-]{1,64}$/)
+    .optional(),
+  hasProduct: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === 'true')),
+  search: z
+    .string()
+    .trim()
+    .max(100)
+    .optional()
+    .transform((v) => v || undefined),
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 })
