@@ -1,24 +1,37 @@
 # Parijatak — Handcrafted Home Textiles
 
-Website and API for Parijatak Home Textile Studio.
-
-- **Frontend** (`/src`) — React, Vite, TypeScript, Tailwind CSS.
-- **Backend** (`/server`) — Node.js, Express, PostgreSQL. Stores enquiries and products, and copies each enquiry to a Google Sheet.
-- **Hosting** — Netlify serves the site and runs the API as a function (`/netlify/functions/api.ts`).
+Website, API and admin panel for Parijatak Home Textile Studio.
 
 ## Contents
 
+- [Architecture](#architecture)
 - [How an enquiry flows](#how-an-enquiry-flows)
 - [Local development](#local-development)
 - [Environment variables](#environment-variables)
-- [Database setup](#database-setup)
+- [Database](#database)
 - [Google Cloud and Google Sheets setup](#google-cloud-and-google-sheets-setup)
 - [Production deployment (Netlify)](#production-deployment-netlify)
 - [Administrators](#administrators)
 - [API](#api)
 - [Tests](#tests)
 - [Security](#security)
+- [Known limitations and outstanding work](#known-limitations-and-outstanding-work)
 - [Project structure](#project-structure)
+
+## Architecture
+
+```
+Browser (React)  →  /api/*  →  Express API  →  PostgreSQL
+                               (Netlify function)
+                                     ↓
+                               Google Sheets (copy of enquiries)
+```
+
+- **Frontend** (`src/`) — React, Vite, TypeScript, Tailwind CSS. The public pages read products, the homepage carousel, page text and contact details from the API. The browser never talks to the database and holds no credentials.
+- **Admin panel** (`src/admin/`) — a separate bundle loaded only on `/admin`.
+- **Backend** (`server/`) — Node.js and Express. On Netlify it runs as one function (`netlify/functions/api.ts`); `netlify.toml` sends `/api/*` to it. The same code also runs as an ordinary server with `npm start`.
+- **Database** — PostgreSQL, reached only by the backend through `DATABASE_URL`, using the `pg` driver with parameterized queries and a small connection pool. No ORM.
+- **Starting content** (`shared/defaultContent.ts`) — written into a new database once, and used by the site as a fallback if the API cannot be reached.
 
 ## How an enquiry flows
 
@@ -67,7 +80,9 @@ npm run server
 npm run dev
 ```
 
-The site is at `http://localhost:5173` and the API at `http://localhost:4000`. Vite forwards `/api/*` to the API, so the contact form works straight away.
+The site is at `http://localhost:5173` and the API at `http://localhost:4000`. Vite forwards `/api/*` to the API. **Both must be running**: the public pages load their content from the API, so with only `npm run dev` the carousel is replaced by a plain panel and products show a "could not be loaded" notice.
+
+The first start creates the tables and fills them with the starting content. To start again from scratch, stop the server and delete the `data/pglite` folder.
 
 | Script | What it does |
 | --- | --- |
@@ -76,6 +91,7 @@ The site is at `http://localhost:5173` and the API at `http://localhost:4000`. V
 | `npm start` | API as a standalone server (also serves the built site from `dist/`) |
 | `npm run build` | Type-check and build the frontend into `dist/` |
 | `npm test` | Run the API tests |
+| `npm run admin -- …` | Create and manage administrator accounts (see [Administrators](#administrators)) |
 | `npm run typecheck:server` | Type-check the server |
 
 ## Environment variables
@@ -84,7 +100,7 @@ Set these in `.env` locally and in **Netlify → Site configuration → Environm
 
 | Variable | Required | Default | Purpose |
 | --- | --- | --- | --- |
-| `NODE_ENV` | in production | `development` | Set to `production` when deployed |
+| `NODE_ENV` | standalone server only | `development` | Set to `production` when running `npm start` on a server. Not needed on Netlify (the function sets it) |
 | `DATABASE_URL` | in production | — | PostgreSQL connection string, `postgresql://user:password@host/db?sslmode=require`. Empty in development means the embedded database |
 | `GOOGLE_SHEETS_ID` | for Sheets | — | The spreadsheet's ID (from its URL) |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | for Sheets | — | Service account's `client_email` |
@@ -106,33 +122,73 @@ Generate an admin key:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-## Database setup
+## Database
 
 Production uses **PostgreSQL**. Any provider works; [Neon](https://neon.tech) has a free tier and suits Netlify well.
+
+### Setup
 
 1. Create a Postgres database with your provider.
 2. Copy its connection string. On Neon, use the **pooled** connection string (the host contains `-pooler`) — it is designed for serverless functions.
 3. Set it as `DATABASE_URL` in Netlify (see [deployment](#production-deployment-netlify)).
 
-That is all. The tables and indexes are created automatically the first time the API connects, and the three launch products are inserted if they are missing. There are no migration commands to run.
+There are no migration commands to run. Open `/api/health` to confirm the connection: it reports `"database": "ok"` and never reveals the connection string.
 
-**`enquiries`**
+### Migrations
 
-| Field | Notes |
+Schema changes are numbered migrations in `server/config/migrations.ts`. They are applied automatically, in order, the first time the API connects after a deploy. Each runs inside a transaction (it applies completely or not at all), is recorded in the `schema_migrations` table so it never runs twice, and is guarded by a lock so two function instances starting together cannot both run it.
+
+| Version | What it does |
 | --- | --- |
-| `id` | UUID |
-| `name`, `email`, `phone` | Phone is normalised to `+91XXXXXXXXXX`; email is lower-cased |
-| `inquiryType` | One of the six types listed under [POST /api/enquiries](#post-apienquiries) |
-| `message` | |
-| `productId`, `productName` | Set when the enquiry is about a product, otherwise `null` |
-| `source` | `website` \| `whatsapp` \| `other` |
-| `status` | `new` \| `contacted` \| `converted` \| `closed` |
-| `createdAt`, `updatedAt` | Timestamps (UTC) |
-| `sheetSyncedAt` | When the row reached Google Sheets; `null` until then |
+| 1 | Creates `products` and `enquiries` |
+| 2 | Creates `admin_users`, `admin_sessions`, `admin_login_attempts` |
+| 3 | Creates `categories`, `homepage_slides`, `site_settings`, `page_sections`, `offers`; adds detail and status columns to `products`; adds notes and sync-error columns to `enquiries`; writes the starting content |
 
-**`products`** — `id`, `name`, `slug`, `category`, `description`, `material`, `price`, `imageUrl`, `additionalImages`, `customizationAvailable`, `isFeatured`, `isActive`, `createdAt`, `updatedAt`. Inactive products are never returned by the API.
+Rules the migrations follow: they only **add** tables, columns and indexes; they never drop or rewrite existing data; and a shipped migration is never edited — a change means a new migration. Anything destructive must be a separate, backed-up, manual step.
 
-**Backups.** Enquiries live in this database, so turn on your provider's automatic backups.
+Migration 3 keeps existing data: products that were active become `published`, inactive ones become `archived`, and every category name already in use becomes a row in `categories`. The starting content (three products, five carousel slides, page text, contact details) is written once; later edits and deletions are never overwritten.
+
+### Tables
+
+| Table | Holds |
+| --- | --- |
+| `products` | Name, unique slug, category, short and full description, material, craftsmanship, dimensions, variants, price and offer price, main image with alt text, extra images, customization and featured flags, display order, status |
+| `categories` | Product categories and their order |
+| `enquiries` | Customer enquiries: contact details, type, message, related product, source, status, internal notes, Google Sheets sync time and last sync error |
+| `homepage_slides` | Carousel slides: image or video, poster, alt text, heading, description, button, order, on/off switch, status |
+| `page_sections` | The editable text blocks of the Home, About and Collection pages |
+| `site_settings` | Brand, contact, social, footer and gallery details |
+| `offers` | Offers and banners with optional start and end dates |
+| `admin_users`, `admin_sessions`, `admin_login_attempts` | Administrator accounts, sessions and sign-in throttling |
+| `schema_migrations` | Which migrations have run |
+
+**Publication status.** Products, slides and offers are `draft`, `published` or `archived`. Only `published` records are returned by public endpoints. A slide must also be switched on, and an offer must be inside its dates. New records start as `draft`.
+
+### Backup and recovery
+
+Enquiries exist only in this database (Google Sheets holds a copy, not the original), so backups matter.
+
+- **Turn on automatic backups** with your provider. Neon keeps a history that lets you restore to an earlier point in time; check how many days your plan retains.
+- **Before any risky change**, take a manual copy: `pg_dump "$DATABASE_URL" > backup.sql`. Keep the file somewhere private — it contains customer details.
+- **To recover**: restore the provider's backup (or `psql "$DATABASE_URL" < backup.sql` into an empty database), point `DATABASE_URL` at the restored database, and redeploy. The API applies any missing migrations on connect.
+- **To undo a code release**, republish the previous deploy from Netlify's **Deploys** list. Because migrations only add things, older code keeps working against the newer database; the extra tables and columns are simply unused.
+
+To remove what a migration added (only after a backup, and only if you are sure):
+
+```sql
+-- Migration 3
+DROP TABLE offers, page_sections, site_settings, homepage_slides;
+ALTER TABLE enquiries DROP COLUMN internal_notes, DROP COLUMN sheet_sync_error, DROP COLUMN sheet_sync_attempted_at;
+ALTER TABLE products DROP COLUMN short_description, DROP COLUMN image_alt, DROP COLUMN craftsmanship,
+  DROP COLUMN dimensions, DROP COLUMN variants, DROP COLUMN offer_price, DROP COLUMN display_order,
+  DROP COLUMN status, DROP COLUMN category_id;
+DROP TABLE categories;
+DELETE FROM schema_migrations WHERE version = 3;
+
+-- Migration 2
+DROP TABLE admin_login_attempts, admin_sessions, admin_users;
+DELETE FROM schema_migrations WHERE version = 2;
+```
 
 ## Google Cloud and Google Sheets setup
 
@@ -181,34 +237,39 @@ Note: a later status change (`PATCH /api/enquiries/:id`) is **not** copied to th
 
 ## Production deployment (Netlify)
 
-The repository is already set up for Netlify through `netlify.toml`: every push to `main` builds the site and deploys the API as a function at `/api/*`.
+The repository is set up for Netlify through `netlify.toml`: every push to the `main` branch builds the site and deploys the API as a function at `/api/*`.
 
-1. **Database** — create the Postgres database ([Database setup](#database-setup)).
-2. **Google** — create the service account and sheet ([Google setup](#google-cloud-and-google-sheets-setup)).
-3. **Environment variables** — in Netlify, go to **Site configuration → Environment variables** and add:
+**Order matters.** The public pages load their content from the API, so the database must be connected **before** this version goes live. Deployed without `DATABASE_URL`, the homepage shows a plain panel instead of the carousel and the collection shows an error notice.
+
+1. **Database** — create the Postgres database ([Database](#database)).
+2. **Environment variables** — in Netlify, go to **Site configuration → Environment variables** and add:
 
    | Variable | Value |
    | --- | --- |
-   | `NODE_ENV` | `production` |
    | `DATABASE_URL` | your Postgres connection string |
-   | `GOOGLE_SHEETS_ID` | the sheet's ID |
-   | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | the service account email |
-   | `GOOGLE_PRIVATE_KEY` | the private key |
+   | `GOOGLE_SHEETS_ID` | the sheet's ID (optional) |
+   | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | the service account email (optional) |
+   | `GOOGLE_PRIVATE_KEY` | the private key (optional) |
 
-4. **Redeploy** — **Deploys → Trigger deploy → Deploy site**. Environment variable changes only take effect after a new deploy.
-5. **Verify** — open `https://your-site/api/health`. A healthy setup returns:
+   No session secret is needed: sessions are random tokens stored (hashed) in the database.
+
+   **Do not add `NODE_ENV` in Netlify.** The function sets production mode itself; setting `NODE_ENV=production` as a Netlify variable makes the build skip its tools and fail. Mark `DATABASE_URL` as a secret so its value is hidden in the dashboard.
+3. **Deploy** — merge the work into `main` and push, or use **Deploys → Trigger deploy**. Environment variable changes only take effect after a new deploy.
+4. **Verify the API** — open `https://your-site/api/health`. A healthy setup returns:
 
    ```json
    { "success": true, "data": { "status": "ok", "database": "ok", "googleSheets": "configured" } }
    ```
 
-   Then submit the contact form and confirm the enquiry appears in the sheet.
+   The first request also runs the migrations, so it can take a few seconds.
+5. **Create your administrator account** — on your own computer, with the production `DATABASE_URL` in a local `.env` file: `npm run admin -- create --email … --name "…"` (see [Administrators](#administrators)). Remove the connection string from `.env` afterwards so later local work does not touch production.
+6. **Check the site** — the homepage carousel and products load, a test enquiry from the contact form appears in the admin panel (and in the sheet, if configured), and you can sign in at `/admin`.
 
 Function logs are under **Logs → Functions → api** in Netlify.
 
-**Rate limiting on Netlify.** Limits are counted in the memory of each running function instance. Netlify may run several instances and restarts them when idle, so the limits are a deterrent rather than a strict guarantee. Duplicate protection is enforced in the database and is not affected.
+**Local server and Netlify are not identical.** On Netlify the API is a short-lived function: there is no shared memory between requests, so anything that must persist lives in the database (sessions, sign-in throttling, duplicate protection). The general request rate limits are counted per running instance and are therefore approximate.
 
-**Other hosts.** The same code runs as an ordinary Node server with `npm start` (Node 24+) on any host. Set `TRUST_PROXY=1` behind a platform proxy, and `CORS_ORIGINS` if the site is on a different domain.
+**Other hosts.** The same code runs as an ordinary Node server with `npm start` (Node 24+). Set `TRUST_PROXY=1` behind a platform proxy, and `CORS_ORIGINS` if the site is on a different domain.
 
 ## Administrators
 
@@ -221,7 +282,7 @@ The admin panel lives at `/admin`. Administrators sign in with an email and pass
 | Overview | Enquiry counts by status, last 7 days, latest enquiries, Google Sheets sync status with a retry button |
 | Enquiries | List with search, filters (status, type, product/general, sheet status), paging, full details, and status changes |
 | Products | View-only list of published products |
-| Homepage carousel, Offers & banners, Homepage & About, Contact & social | Not built yet — each page says so. They need the content-management backend |
+| Homepage carousel, Offers & banners, Homepage & About, Contact & social | **Screens not built yet** — each page says so. The API behind them exists and is tested (see [Admin content endpoints](#admin-content-endpoints)) |
 | Account | Who is signed in, and change password |
 
 The panel adapts to phones: the sidebar becomes a slide-in menu and the enquiry table becomes a list of cards. A `viewer` account sees everything but gets no controls that change data; the server refuses such requests regardless.
@@ -263,21 +324,9 @@ Password recovery is deliberately a command for whoever controls the database, n
 
 `ADMIN_API_KEY` (sent as `Authorization: Bearer …`) still works on the enquiry admin endpoints so existing scripts are not broken. Responses to it carry a `Deprecation: true` header. It is never used by the browser. Once nothing depends on it, delete the variable from Netlify and redeploy — that switches the path off.
 
-### Database migrations and rollback
+### Migrations and rollback
 
-Schema changes are numbered migrations in `server/config/migrations.ts`. They run automatically when the API connects, each inside a transaction, and are recorded in the `schema_migrations` table. They only add tables, columns and indexes.
-
-| Version | Adds |
-| --- | --- |
-| 1 | `products`, `enquiries` |
-| 2 | `admin_users`, `admin_sessions`, `admin_login_attempts` |
-
-To roll back the admin authentication release: redeploy the previous version from Netlify's **Deploys** list (**Publish deploy** on an older entry). The new tables are simply unused by the old code and can stay. To remove them as well, after taking a backup:
-
-```sql
-DROP TABLE admin_login_attempts, admin_sessions, admin_users;
-DELETE FROM schema_migrations WHERE version = 2;
-```
+See [Database → Migrations](#migrations) and [Backup and recovery](#backup-and-recovery).
 
 ## API
 
@@ -293,39 +342,56 @@ Every response is JSON in one of two shapes:
 { "success": false, "message": "Human readable error" }
 ```
 
-Validation errors (status `400`) also include an `errors` object mapping each field to its message.
+Validation errors (status `400`) also include an `errors` object mapping each field to its message. List endpoints for administrators add a `pagination` object.
 
-| Method | Path | Access | Purpose |
-| --- | --- | --- | --- |
-| `GET` | `/api/health` | Public | Reports whether the database and Sheets are ready |
-| `GET` | `/api/products` | Public | List active products |
-| `GET` | `/api/products/:id` | Public | One product, by id or slug |
-| `POST` | `/api/enquiries` | Public, rate limited | Submit an enquiry |
-| `GET` | `/api/enquiries` | Admin | List, filter and search enquiries |
-| `GET` | `/api/enquiries/:id` | Admin | One enquiry |
-| `PATCH` | `/api/enquiries/:id` | Admin | Update an enquiry's status |
-| `POST` | `/api/enquiries/sync-sheet` | Admin | Push enquiries that missed Google Sheets |
-| `GET` | `/api/admin/overview` | Signed in | Figures for the dashboard's first screen |
-| `POST` | `/api/admin/auth/login` | Public, throttled | Sign in; sets the session cookie |
-| `GET` | `/api/admin/auth/session` | Signed in | Current administrator and CSRF token |
-| `POST` | `/api/admin/auth/logout` | Signed in | End the session |
-| `POST` | `/api/admin/auth/change-password` | Signed in | Change own password |
+### Public endpoints
 
-Admin endpoints require a signed-in administrator (session cookie, plus the `X-CSRF-Token` header on anything that changes data) — see [Administrators](#administrators). Changing data needs the `admin` role. The curl examples below use the [legacy API key](#legacy-api-key), which remains available for scripts.
+No sign-in. Read-only, except submitting an enquiry. They return published content only and never return an enquiry.
 
-### GET /api/products
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/health` | Whether the database and Sheets are ready |
+| `GET` | `/api/products` | Published products. Optional `featured=true|false`, `category=<id or name>` |
+| `GET` | `/api/products/:id` | One published product, by id or slug |
+| `GET` | `/api/categories` | Categories that have at least one published product |
+| `GET` | `/api/homepage` | Carousel slides, active offers and the studio gallery |
+| `GET` | `/api/pages/:page` | Text blocks of `home`, `about` or `collection` |
+| `GET` | `/api/site` | Brand, contact, social and footer details |
+| `GET` | `/api/offers` | Offers that are published and inside their dates |
+| `POST` | `/api/enquiries` | Submit an enquiry (rate limited) |
 
-Optional query parameters: `featured=true|false`, `category=<name>`.
+Each product includes its `images` (main image first, with alt text), `variants`, `price` / `offerPrice` when set, and a ready-made `whatsappEnquiryUrl` using the WhatsApp number from the site settings.
 
-```bash
-curl "http://localhost:4000/api/products?featured=true"
-```
+### Admin endpoints
 
-Each product includes a ready-made `whatsappEnquiryUrl`.
+All require a signed-in administrator; changing data also needs the `admin` role and the `X-CSRF-Token` header. See [Administrators](#administrators).
 
-### GET /api/products/:id
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/admin/auth/login` | Sign in (public, throttled); sets the session cookie |
+| `GET` | `/api/admin/auth/session` | Current administrator and CSRF token |
+| `POST` | `/api/admin/auth/logout` | End the session |
+| `POST` | `/api/admin/auth/change-password` | Change own password |
+| `GET` | `/api/admin/overview` | Figures for the dashboard's first screen |
+| `GET` | `/api/enquiries` | List, filter and search enquiries |
+| `GET` | `/api/enquiries/:id` | One enquiry |
+| `PATCH` | `/api/enquiries/:id` | Update status and/or internal notes |
+| `POST` | `/api/enquiries/sync-sheet` | Push enquiries that missed Google Sheets |
 
-`:id` may be the product's id or its slug. Returns `404` if the product does not exist or is inactive.
+#### Admin content endpoints
+
+| Resource | Endpoints under `/api/admin` |
+| --- | --- |
+| Products | `GET /products` (all statuses; `status`, `categoryId`, `search`, `limit`, `offset`), `GET /products/:id`, `POST /products`, `PATCH /products/:id`, `DELETE /products/:id` |
+| Categories | `GET /categories`, `POST /categories`, `PATCH /categories/:id`, `DELETE /categories/:id` (refused while products use it) |
+| Carousel slides | `GET /slides`, `POST /slides`, `PATCH /slides/:id`, `DELETE /slides/:id` |
+| Page text | `GET /sections` (optional `page`), `PATCH /sections/:id` |
+| Site settings | `GET /settings`, `PUT /settings/:key` where key is `brand`, `contact`, `social`, `footer` or `gallery` |
+| Offers | `GET /offers`, `POST /offers`, `PATCH /offers/:id`, `DELETE /offers/:id` |
+
+Publishing, unpublishing and archiving are a `PATCH` of `status`. Image, video and button addresses must be a path on the site (`/media/…`, `/collection`) or a full `https://` address; anything else is rejected. Text is stored and shown as plain text — HTML is stripped, never rendered. Deleting a product keeps its enquiries (they retain the product's name).
+
+The curl examples below use the [legacy API key](#legacy-api-key), which works on the enquiry endpoints for scripts.
 
 ### POST /api/enquiries
 
@@ -416,7 +482,7 @@ curl "http://localhost:4000/api/enquiries?status=new&hasProduct=true&search=thro
 
 ### PATCH /api/enquiries/:id
 
-Admin. Changes the status. The body accepts only `status`.
+Admin. Changes the status, the internal notes, or both. The body accepts `status` and `internalNotes` (private notes for staff, never shown publicly).
 
 ```bash
 curl -X PATCH http://localhost:4000/api/enquiries/d1d16ac3-fd18-4ddd-ad21-80169817ea5f \
@@ -455,7 +521,21 @@ Run it after fixing a Sheets problem. It is safe to run repeatedly — rows alre
 npm test
 ```
 
-The tests start the real API against an in-memory Postgres. The authentication tests cover sign-in, cookie flags, session expiry (idle and absolute), sign-out, password change and reset, CSRF, cross-site requests, roles, unauthenticated access to every admin route, and the legacy key. The enquiry tests cover: a valid enquiry, invalid email, invalid phone, missing name, missing inquiry type, database failure, Google Sheets failure and later re-sync, duplicate and simultaneous submissions, and the admin filter/search/status endpoints. Google Sheets is replaced by a stand-in, so no credentials or network access are needed.
+The tests start the real API against an in-memory Postgres; no credentials or network access are needed (Google Sheets is replaced by a stand-in). They cover:
+
+- **Enquiries** — valid submission, each invalid field, database failure, Google Sheets failure and later re-sync, duplicate and simultaneous submissions, internal notes, recorded sync errors.
+- **Authentication** — sign-in, cookie flags, idle and absolute session expiry, sign-out, password change and reset, CSRF, cross-site requests, roles, every admin route without a session, the legacy key.
+- **Content** — published products load; drafts and archived products are hidden from every public endpoint; product, category, slide, section, settings and offer changes persist and appear publicly; offers respect their dates; unsafe addresses and unknown fields are rejected; every content route refuses signed-out visitors and changes from a `viewer`; a database failure returns a generic error.
+
+Other checks:
+
+```bash
+npm run build
+```
+
+```bash
+npm run typecheck:server
+```
 
 ## Security
 
@@ -467,27 +547,44 @@ The tests start the real API against an in-memory Postgres. The authentication t
 - **Secure headers** — set by Helmet.
 - **Admin access** — server-side sessions with HttpOnly cookies, CSRF protection, expiry, database-backed sign-in throttling and roles; see [Administrators](#administrators).
 - **Errors** — clients receive a generic message; stack traces and database details stay in the server log.
+- **Unpublished content** — public queries filter on status in the database, and public responses are shaped field by field, so drafts and internal fields cannot leak.
+- **Links and media from the database** — only site paths and `https://` addresses are accepted, and all editable text is rendered as plain text, never as HTML.
 - **Secrets** — the database URL, Google credentials and admin key are read from environment variables on the server only. None are in the frontend, `public/`, or the repository.
 
 WhatsApp remains a frontend channel: "Enquire on WhatsApp" opens a `wa.me` link with a pre-filled message. The backend holds no WhatsApp credentials, and enquiries that begin on WhatsApp are not recorded automatically.
+
+## Known limitations and outstanding work
+
+- **Admin screens for content are not built.** Products, carousel, offers, page text and contact details can be changed through the API but not yet through the admin panel's pages.
+- **No media uploads.** Images and videos are files in `public/media`, referenced by path; adding one needs a code deploy. Uploads require choosing persistent object storage first (Netlify Blobs is the suggested option).
+- **No blog.** Nothing in the project uses one; it can be added as a new migration when wanted.
+- **Google Sheets has never been run against a real sheet** from this codebase; only its failure handling is verified.
+- **Rate limits are approximate on Netlify** (counted per function instance). Sign-in throttling and duplicate protection are exact because they live in the database.
+- **Search engines** receive the page shell before the content loads; product and page text is added by JavaScript.
+- **WhatsApp enquiries are not recorded.** "Enquire on WhatsApp" opens WhatsApp only.
+- **Password recovery is a command**, not an emailed link, because there is no email service.
 
 ## Project structure
 
 ```
 netlify/functions/api.ts   Runs the API on Netlify
+netlify.toml               Build settings and /api routing
+shared/defaultContent.ts   Starting content: database seed and site fallback
 server/
   index.ts           Standalone server entry point
   app.ts             Express app: security middleware, routes, error handling
-  config/            Environment parsing, database connection, schema, seed data
-  routes/            URL → controller mapping
+  config/            Environment parsing, database connection, migrations, seed
+  routes/            URL → controller mapping (public and admin)
   controllers/       Request parsing and responses
-  services/          Enquiry workflow, googleSheetsService
-  models/            Database queries for products and enquiries
-  middleware/        Rate limiting, admin auth, error handler
-  utils/             Validation schemas, sanitizers, logger, HttpError
+  services/          Enquiry workflow, authentication, googleSheetsService
+  models/            Database queries
+  middleware/        Rate limiting, admin authentication, error handler
+  utils/             Validation schemas, sanitizers, logger, helpers
   scripts/admin.ts   Create and recover administrator accounts
   tests/             API tests
-src/                 Public site (see src/config/site.ts for brand settings)
-src/admin/           Admin panel (loaded only on /admin)
-public/media/        Images and video
+src/
+  pages/, components/      Public site
+  context/, hooks/, services/   Loading content from the API
+  admin/                   Admin panel (loaded only on /admin)
+public/media/              Images and video
 ```
