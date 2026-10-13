@@ -69,6 +69,8 @@ export interface EnquiryFilters {
   productId?: string
   /** true = only enquiries about a product; false = only general ones. */
   hasProduct?: boolean
+  /** true = already in Google Sheets; false = still waiting to be copied. */
+  synced?: boolean
   /** Free-text search across name, email, phone, message and product name. */
   search?: string
   from?: Date
@@ -149,6 +151,8 @@ export const enquiryModel = {
     if (filters.productId) add((p) => `product_id = ${p}`, filters.productId)
     if (filters.hasProduct !== undefined)
       where.push(filters.hasProduct ? 'product_id IS NOT NULL' : 'product_id IS NULL')
+    if (filters.synced !== undefined)
+      where.push(filters.synced ? 'sheet_synced_at IS NOT NULL' : 'sheet_synced_at IS NULL')
     if (filters.from) add((p) => `created_at >= ${p}`, filters.from)
     if (filters.to) add((p) => `created_at <= ${p}`, filters.to)
     if (filters.search) {
@@ -185,6 +189,39 @@ export const enquiryModel = {
       [status, id],
     )
     return rows[0] ? toEnquiry(rows[0]) : null
+  },
+
+  /** Headline figures for the admin dashboard. */
+  async stats() {
+    const db = await getDb()
+    const { rows } = await db.query<{
+      total: number
+      new: number
+      contacted: number
+      converted: number
+      closed: number
+      last_7_days: number
+      product: number
+      unsynced: number
+    }>(
+      `SELECT COUNT(*)::int                                                    AS total,
+              COUNT(*) FILTER (WHERE status = 'new')::int                      AS new,
+              COUNT(*) FILTER (WHERE status = 'contacted')::int                AS contacted,
+              COUNT(*) FILTER (WHERE status = 'converted')::int                AS converted,
+              COUNT(*) FILTER (WHERE status = 'closed')::int                   AS closed,
+              COUNT(*) FILTER (WHERE created_at > now() - interval '7 days')::int AS last_7_days,
+              COUNT(*) FILTER (WHERE product_id IS NOT NULL)::int              AS product,
+              COUNT(*) FILTER (WHERE sheet_synced_at IS NULL)::int             AS unsynced
+         FROM enquiries`,
+    )
+    const r = rows[0]
+    return {
+      total: r.total,
+      byStatus: { new: r.new, contacted: r.contacted, converted: r.converted, closed: r.closed },
+      last7Days: r.last_7_days,
+      productEnquiries: r.product,
+      unsynced: r.unsynced,
+    }
   },
 
   async markSheetSynced(id: string): Promise<void> {

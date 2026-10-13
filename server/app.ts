@@ -18,6 +18,7 @@ export function createApp() {
 
   app.use(
     '/api',
+    // No `credentials: true`: other sites can never make cookie-authenticated calls.
     cors({ origin: env.corsOrigins, methods: ['GET', 'POST', 'PATCH'] }),
     apiLimiter,
     express.json({ limit: '10kb' }),

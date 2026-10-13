@@ -34,7 +34,16 @@ const schema = z.object({
   /** Number of reverse proxies in front of the server (needed for correct rate limiting). */
   TRUST_PROXY: z.coerce.number().int().min(0).default(0),
 
-  /** Secret for the admin endpoints. While unset, those endpoints are disabled. */
+  /** Minutes of inactivity after which an admin session ends. */
+  ADMIN_SESSION_IDLE_MINUTES: z.coerce.number().int().min(5).max(240).default(30),
+  /** Hours after sign-in at which an admin session ends regardless of activity. */
+  ADMIN_SESSION_MAX_HOURS: z.coerce.number().int().min(1).max(72).default(12),
+
+  /**
+   * LEGACY. Shared secret accepted as `Authorization: Bearer …` on admin endpoints, kept so
+   * existing scripts keep working. Administrators sign in with their own accounts instead.
+   * Remove this variable to switch the legacy path off.
+   */
   ADMIN_API_KEY: optional.refine((v) => !v || v.length >= 24, {
     message: 'ADMIN_API_KEY must be at least 24 characters',
   }),

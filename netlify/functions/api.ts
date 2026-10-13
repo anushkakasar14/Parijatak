@@ -10,6 +10,9 @@ type Handler = (event: Record<string, unknown>, context: unknown) => Promise<unk
 let handlerPromise: Promise<Handler> | undefined
 
 async function build(): Promise<Handler> {
+  // Tells the app it may trust Netlify's client-IP header (see server/utils/clientIp.ts).
+  process.env.PARIJATAK_RUNTIME = 'netlify'
+
   // Imported lazily so a configuration problem becomes a clean JSON error
   // instead of a function that fails to start.
   const { createApp } = await import('../../server/app.ts')

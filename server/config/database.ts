@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import pg from 'pg'
 import { env } from './env.ts'
+import { migrations } from './migrations.ts'
 import { seedProducts } from './seedProducts.ts'
 
 export interface QueryResult<T> {
@@ -19,48 +20,6 @@ export interface Database extends Queryable {
   transaction<T>(fn: (tx: Queryable) => Promise<T>): Promise<T>
   close(): Promise<void>
 }
-
-// Statements are run one at a time, split on ";" — keep semicolons out of SQL comments.
-const SCHEMA = `
-  CREATE TABLE IF NOT EXISTS products (
-    id                      TEXT PRIMARY KEY,
-    name                    TEXT NOT NULL,
-    slug                    TEXT NOT NULL UNIQUE,
-    category                TEXT NOT NULL,
-    description             TEXT NOT NULL,
-    material                TEXT,
-    price                   NUMERIC(10, 2),
-    image_url               TEXT NOT NULL,
-    additional_images       JSONB NOT NULL DEFAULT '[]',
-    customization_available BOOLEAN NOT NULL DEFAULT TRUE,
-    is_featured             BOOLEAN NOT NULL DEFAULT FALSE,
-    is_active               BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at              TIMESTAMPTZ NOT NULL DEFAULT now()
-  );
-
-  CREATE TABLE IF NOT EXISTS enquiries (
-    id              UUID PRIMARY KEY,
-    name            TEXT NOT NULL,
-    email           TEXT NOT NULL,
-    phone           TEXT NOT NULL,
-    inquiry_type    TEXT NOT NULL,
-    message         TEXT NOT NULL,
-    product_id      TEXT REFERENCES products(id) ON DELETE SET NULL,
-    product_name    TEXT,
-    source          TEXT NOT NULL DEFAULT 'website' CHECK (source IN ('website', 'whatsapp', 'other')),
-    status          TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'contacted', 'converted', 'closed')),
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    -- Set once the row has been copied to Google Sheets. NULL means "still to sync".
-    sheet_synced_at TIMESTAMPTZ
-  );
-
-  CREATE INDEX IF NOT EXISTS enquiries_status_idx ON enquiries (status);
-  CREATE INDEX IF NOT EXISTS enquiries_created_at_idx ON enquiries (created_at DESC);
-  CREATE INDEX IF NOT EXISTS enquiries_contact_idx ON enquiries (email, phone, created_at DESC);
-  CREATE INDEX IF NOT EXISTS enquiries_product_idx ON enquiries (product_id);
-`
 
 /** Production: a real PostgreSQL server reached through DATABASE_URL. */
 function connectPostgres(connectionString: string): Database {
@@ -126,6 +85,34 @@ async function connectEmbedded(dataDir?: string): Promise<Database> {
   }
 }
 
+/** Applies any migrations this database has not seen yet, oldest first. */
+async function migrate(db: Database): Promise<void> {
+  await db.query(
+    `CREATE TABLE IF NOT EXISTS schema_migrations (
+       version    INTEGER PRIMARY KEY,
+       name       TEXT NOT NULL,
+       applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+     )`,
+  )
+
+  await db.transaction(async (tx) => {
+    // Two instances starting at once must not both run the same migration.
+    await tx.query('SELECT pg_advisory_xact_lock(727101)')
+
+    const { rows } = await tx.query<{ version: number }>('SELECT version FROM schema_migrations')
+    const applied = new Set(rows.map((r) => r.version))
+
+    for (const migration of migrations) {
+      if (applied.has(migration.version)) continue
+      for (const statement of migration.statements) await tx.query(statement)
+      await tx.query('INSERT INTO schema_migrations (version, name) VALUES ($1, $2)', [
+        migration.version,
+        migration.name,
+      ])
+    }
+  })
+}
+
 async function open(): Promise<Database> {
   const url = env.DATABASE_URL
 
@@ -134,10 +121,9 @@ async function open(): Promise<Database> {
   else if (env.isProduction) throw new Error('DATABASE_URL is not set')
   else db = await connectEmbedded(url === 'memory://' ? undefined : resolve('data', 'pglite'))
 
-  // Create tables on first use, and seed the catalogue if it is empty.
-  for (const statement of SCHEMA.split(';')) {
-    if (statement.trim()) await db.query(statement)
-  }
+  await migrate(db)
+
+  // Seed the catalogue if it is empty.
   for (const p of seedProducts) {
     await db.query(
       `INSERT INTO products (id, name, slug, category, description, image_url, is_featured)

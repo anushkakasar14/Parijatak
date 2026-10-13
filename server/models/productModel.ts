@@ -76,6 +76,14 @@ export const productModel = {
     return rows.map(toProduct)
   },
 
+  async counts(): Promise<{ total: number; active: number }> {
+    const db = await getDb()
+    const { rows } = await db.query<{ total: number; active: number }>(
+      'SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE is_active)::int AS active FROM products',
+    )
+    return rows[0]
+  },
+
   /** Looks up an active product by id or slug. */
   async findActiveByIdOrSlug(idOrSlug: string): Promise<Product | null> {
     const db = await getDb()

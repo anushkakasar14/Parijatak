@@ -10,6 +10,8 @@ const Collection = lazy(() => import('./pages/Collection'))
 const About = lazy(() => import('./pages/About'))
 const Contact = lazy(() => import('./pages/Contact'))
 const NotFound = lazy(() => import('./pages/NotFound'))
+// The admin panel is a separate bundle: public visitors never download it.
+const AdminApp = lazy(() => import('./admin/AdminApp'))
 
 function Layout() {
   const { pathname } = useLocation()
@@ -42,6 +44,14 @@ export default function App() {
     <BrowserRouter>
       <ProductModalProvider>
         <Routes>
+          <Route
+            path="admin/*"
+            element={
+              <Suspense fallback={null}>
+                <AdminApp />
+              </Suspense>
+            }
+          />
           <Route element={<Layout />}>
             <Route index element={<Home />} />
             <Route path="collection" element={<Collection />} />

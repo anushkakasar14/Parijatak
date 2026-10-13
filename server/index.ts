@@ -17,7 +17,7 @@ const server = createApp().listen(env.PORT, () => {
     environment: env.NODE_ENV,
     database: env.DATABASE_URL ? 'PostgreSQL' : 'embedded (development)',
     googleSheets: googleSheetsService.isConfigured() ? 'enabled' : 'not configured',
-    adminEndpoints: env.ADMIN_API_KEY ? 'enabled' : 'disabled (ADMIN_API_KEY not set)',
+    legacyAdminKey: env.ADMIN_API_KEY ? 'enabled' : 'off',
   })
 })
 
