@@ -3,6 +3,7 @@ import { BrowserRouter, Outlet, Route, Routes, useLocation } from 'react-router-
 import { Footer } from './components/Footer'
 import { Navbar } from './components/Navbar'
 import { ProductModalProvider } from './components/ProductModal'
+import { SiteProvider } from './context/SiteContext'
 import Home from './pages/Home'
 
 // Secondary pages are code-split so the homepage ships the least JavaScript.
@@ -42,25 +43,27 @@ function Layout() {
 export default function App() {
   return (
     <BrowserRouter>
-      <ProductModalProvider>
-        <Routes>
-          <Route
-            path="admin/*"
-            element={
-              <Suspense fallback={null}>
-                <AdminApp />
-              </Suspense>
-            }
-          />
-          <Route element={<Layout />}>
-            <Route index element={<Home />} />
-            <Route path="collection" element={<Collection />} />
-            <Route path="about" element={<About />} />
-            <Route path="contact" element={<Contact />} />
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
-      </ProductModalProvider>
+      <SiteProvider>
+        <ProductModalProvider>
+          <Routes>
+            <Route
+              path="admin/*"
+              element={
+                <Suspense fallback={null}>
+                  <AdminApp />
+                </Suspense>
+              }
+            />
+            <Route element={<Layout />}>
+              <Route index element={<Home />} />
+              <Route path="collection" element={<Collection />} />
+              <Route path="about" element={<About />} />
+              <Route path="contact" element={<Contact />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </ProductModalProvider>
+      </SiteProvider>
     </BrowserRouter>
   )
 }

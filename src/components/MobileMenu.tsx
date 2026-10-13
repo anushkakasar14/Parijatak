@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { NavLink } from 'react-router-dom'
-import { navLinks, site } from '../config/site'
+import { navLinks } from '../config/site'
+import { useSite } from '../context/SiteContext'
 import { CloseIcon } from './Icons'
 import { Swatches } from './Logo'
 
@@ -11,6 +12,7 @@ interface MobileMenuProps {
 
 export function MobileMenu({ open, onClose }: MobileMenuProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
+  const { settings } = useSite()
 
   // Native <dialog> gives us focus trapping, Escape-to-close and focus restoration.
   useEffect(() => {
@@ -60,7 +62,7 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
 
         <div className="mt-auto">
           <Swatches />
-          <p className="mt-4 text-sm text-muted">{site.tagline}</p>
+          <p className="mt-4 text-sm text-muted">{settings.brand.tagline}</p>
         </div>
       </div>
     </dialog>

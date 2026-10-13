@@ -1,25 +1,20 @@
 import { site } from '../config/site'
+import { useSite } from '../context/SiteContext'
 
 interface LogoProps {
   className?: string
 }
 
-/**
- * Renders the supplied Parijatak logo file as-is. Until `site.logoSrc` is set,
- * a neutral text wordmark stands in — it is not a redesign of the logo.
- */
+/** Renders the supplied Parijatak logo file as-is. */
 export function Logo({ className = 'h-[4.5rem] md:h-[5.75rem]' }: LogoProps) {
-  if (site.logoSrc) {
-    // The supplied file has a white background; multiply lets the page colour show through it.
-    return (
-      <img src={site.logoSrc} alt={site.name} className={`${className} w-auto mix-blend-multiply`} />
-    )
-  }
-
+  const { settings } = useSite()
+  // The supplied file has a white background; multiply lets the page colour show through it.
   return (
-    <span className="font-display text-[1.75rem] leading-none font-medium tracking-[0.08em] text-teal md:text-[2rem]">
-      {site.name}
-    </span>
+    <img
+      src={site.logoSrc}
+      alt={settings.brand.name}
+      className={`${className} w-auto mix-blend-multiply`}
+    />
   )
 }
 

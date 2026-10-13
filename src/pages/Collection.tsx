@@ -1,9 +1,14 @@
+import { useSearchParams } from 'react-router-dom'
 import { CollectionGrid } from '../components/CollectionGrid'
+import { FadeIn, LoadError, Paragraphs } from '../components/Content'
+import { ProductCardSkeleton } from '../components/ProductCard'
 import { SectionHeading } from '../components/SectionHeading'
 import { WhatsAppButton } from '../components/WhatsAppButton'
-import { products } from '../data/products'
+import { usePageSections } from '../context/SiteContext'
+import { useResource } from '../hooks/useResource'
 import { useSeo } from '../hooks/useSeo'
 import { whatsappMessages } from '../lib/whatsapp'
+import type { Category, Product } from '../types'
 
 export default function Collection() {
   useSeo(
@@ -11,27 +16,96 @@ export default function Collection() {
     'Thoughtfully crafted bed linens, cushion covers and throws for spaces that feel like home.',
   )
 
+  const { section, ready } = usePageSections('collection')
+  const products = useResource<Product[]>('/products')
+  const categories = useResource<Category[]>('/categories')
+  const [params, setParams] = useSearchParams()
+
+  const intro = section('collection.intro')
+  const contact = section('collection.contact')
+
+  // The chosen category lives in the URL, so a filtered view can be shared or refreshed.
+  const chosen = params.get('category') ?? ''
+  const all = products.data ?? []
+  const options = (categories.data ?? []).filter((c) => all.some((p) => p.categoryId === c.id))
+  const active = options.some((c) => c.id === chosen) ? chosen : ''
+  const shown = active ? all.filter((p) => p.categoryId === active) : all
+
+  const choose = (id: string) => setParams(id ? { category: id } : {}, { replace: true })
+
+  const chipClass = (selected: boolean) =>
+    `border px-4 py-2 text-[0.8125rem] font-medium tracking-[0.14em] uppercase transition-colors ${
+      selected ? 'border-ink bg-ink text-ivory' : 'border-ink/30 hover:border-ink'
+    }`
+
   return (
     <>
       <section className="container-page pt-16 pb-14 md:pt-24 md:pb-20">
-        <SectionHeading as="h1" eyebrow="Parijatak" title="The Collection">
-          <p>Thoughtfully crafted textiles for spaces that feel like home.</p>
-        </SectionHeading>
+        <FadeIn ready={ready}>
+          <SectionHeading as="h1" eyebrow={intro.eyebrow ?? undefined} title={intro.heading}>
+            <Paragraphs text={intro.body} />
+          </SectionHeading>
+        </FadeIn>
+
+        {options.length > 1 && (
+          <div role="group" aria-label="Filter by category" className="mt-10 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => choose('')}
+              aria-pressed={!active}
+              className={chipClass(!active)}
+            >
+              All
+            </button>
+            {options.map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() => choose(category.id)}
+                aria-pressed={active === category.id}
+                className={chipClass(active === category.id)}
+              >
+                {category.name}
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       <section aria-label="Products" className="container-page pb-24 md:pb-36">
-        <CollectionGrid products={products} />
+        {products.status === 'error' ? (
+          <LoadError message="The collection could not be loaded." onRetry={products.retry} />
+        ) : products.status === 'loading' ? (
+          <div
+            role="status"
+            aria-label="Loading products"
+            className="grid gap-x-8 gap-y-16 md:grid-cols-12 md:gap-y-24"
+          >
+            <ProductCardSkeleton aspect="aspect-[4/3]" className="md:col-span-7" />
+            <ProductCardSkeleton aspect="aspect-[3/4]" className="md:col-span-4 md:col-start-9 md:mt-40" />
+          </div>
+        ) : shown.length === 0 ? (
+          <p className="border border-line bg-cream px-6 py-14 text-center font-display text-2xl">
+            New pieces are on their way — please check back soon.
+          </p>
+        ) : (
+          <CollectionGrid products={shown} />
+        )}
       </section>
 
       <section className="border-t border-line">
-        <div className="container-page flex flex-wrap items-center justify-between gap-8 py-16 md:py-20">
-          <SectionHeading title="Looking for something particular?">
-            <p>We take enquiries and orders personally over WhatsApp.</p>
-          </SectionHeading>
-          <WhatsAppButton message={whatsappMessages.customization}>
-            Talk to Us on WhatsApp
-          </WhatsAppButton>
-        </div>
+        <FadeIn ready={ready}>
+          <div className="container-page flex flex-wrap items-center justify-between gap-8 py-16 md:py-20">
+            <SectionHeading title={contact.heading}>
+              <Paragraphs text={contact.body} />
+            </SectionHeading>
+            {contact.ctaLabel && (
+              <WhatsAppButton message={whatsappMessages.customization}>
+                {contact.ctaLabel}
+              </WhatsAppButton>
+            )}
+          </div>
+        </FadeIn>
       </section>
     </>
   )

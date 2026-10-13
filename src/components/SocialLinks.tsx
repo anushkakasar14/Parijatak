@@ -1,33 +1,28 @@
-import type { ReactElement } from 'react'
-import { FACEBOOK_URL, INSTAGRAM_URL, YOUTUBE_URL } from '../config/site'
-import { whatsappMessages, whatsappUrl } from '../lib/whatsapp'
+import { useSite } from '../context/SiteContext'
+import { whatsappMessages } from '../lib/whatsapp'
 import { FacebookIcon, InstagramIcon, WhatsAppIcon, YouTubeIcon } from './Icons'
 
-interface SocialLink {
-  label: string
-  href: string
-  icon: ReactElement
-}
-
-const socialLinks: SocialLink[] = [
-  { label: 'Instagram', href: INSTAGRAM_URL, icon: <InstagramIcon /> },
-  { label: 'YouTube', href: YOUTUBE_URL, icon: <YouTubeIcon /> },
-  { label: 'WhatsApp', href: whatsappUrl(whatsappMessages.general), icon: <WhatsAppIcon /> },
-  { label: 'Facebook', href: FACEBOOK_URL, icon: <FacebookIcon /> },
-].filter((link) => link.href)
-
 interface SocialLinksProps {
-  /** `list` — stacked text links (footer). `buttons` — outlined buttons (contact, about). */
+  /** `list` — stacked text links (footer). `buttons` — outlined buttons (about). */
   variant?: 'list' | 'buttons'
   className?: string
 }
 
 export function SocialLinks({ variant = 'list', className = '' }: SocialLinksProps) {
+  const { settings, whatsappUrl } = useSite()
   const isButtons = variant === 'buttons'
+
+  // A link with no address set in the admin settings is simply left out.
+  const links = [
+    { label: 'Instagram', href: settings.social.instagram, icon: <InstagramIcon /> },
+    { label: 'YouTube', href: settings.social.youtube, icon: <YouTubeIcon /> },
+    { label: 'WhatsApp', href: whatsappUrl(whatsappMessages.general), icon: <WhatsAppIcon /> },
+    { label: 'Facebook', href: settings.social.facebook, icon: <FacebookIcon /> },
+  ].filter((link) => link.href)
 
   return (
     <ul className={`${isButtons ? 'flex flex-wrap gap-3' : 'space-y-2.5'} ${className}`}>
-      {socialLinks.map(({ label, href, icon }) => (
+      {links.map(({ label, href, icon }) => (
         <li key={label}>
           <a
             href={href}

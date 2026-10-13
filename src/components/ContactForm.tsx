@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import type { ChangeEvent, FocusEvent, FormEvent } from 'react'
 import { inquiryTypes, validateEnquiry } from '../lib/validation'
 import type { EnquiryData, EnquiryErrors } from '../lib/validation'
-import { submitEnquiry } from '../services/enquiry'
+import { EnquiryError, submitEnquiry } from '../services/enquiry'
 
 const emptyForm: EnquiryData = {
   fullName: '',
@@ -24,6 +24,7 @@ export function ContactForm() {
   const [values, setValues] = useState(emptyForm)
   const [errors, setErrors] = useState<EnquiryErrors>({})
   const [status, setStatus] = useState<Status>('idle')
+  const [failure, setFailure] = useState('')
 
   const onChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
@@ -53,11 +54,24 @@ export function ContactForm() {
 
     setStatus('submitting')
     try {
+      // Shown as sent only after the server confirms the enquiry was saved.
       await submitEnquiry(values)
       setValues(emptyForm)
       setStatus('success')
-    } catch {
+    } catch (err) {
+      // What the visitor typed is kept, so they can correct it or simply try again.
+      const fieldErrors = err instanceof EnquiryError ? err.fieldErrors : {}
+      setErrors(fieldErrors)
+      setFailure(
+        err instanceof EnquiryError
+          ? err.message
+          : 'Your enquiry was not sent. Please try again.',
+      )
       setStatus('error')
+      const firstRejected = fieldOrder.find((name) => fieldErrors[name])
+      if (firstRejected) {
+        formRef.current?.querySelector<HTMLElement>(`[name="${firstRejected}"]`)?.focus()
+      }
     }
   }
 
@@ -154,8 +168,7 @@ export function ContactForm() {
 
       {status === 'error' && (
         <p role="alert" className="text-sm font-medium text-maroon">
-          Sorry, something went wrong and your enquiry was not sent. Please try again, or message
-          us on WhatsApp.
+          {failure}
         </p>
       )}
 

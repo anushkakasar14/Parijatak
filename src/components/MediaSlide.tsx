@@ -21,14 +21,14 @@ export function MediaSlide({ slide, active, priority = false }: MediaSlideProps)
 
   const mediaClass = 'h-full w-full object-cover'
 
-  if (slide.type === 'video' && slide.src) {
+  if (slide.mediaType === 'video') {
     return (
       <video
         ref={videoRef}
         className={mediaClass}
-        src={slide.src}
-        poster={slide.poster}
-        aria-label={slide.alt}
+        src={slide.mediaUrl}
+        poster={slide.posterUrl ?? undefined}
+        aria-label={slide.altText}
         muted
         loop
         playsInline
@@ -40,8 +40,8 @@ export function MediaSlide({ slide, active, priority = false }: MediaSlideProps)
   return (
     <img
       className={mediaClass}
-      src={slide.type === 'video' ? slide.poster : slide.src}
-      alt={slide.alt}
+      src={slide.mediaUrl}
+      alt={slide.altText}
       loading={priority ? 'eager' : 'lazy'}
       fetchPriority={priority ? 'high' : 'auto'}
       decoding="async"

@@ -1,47 +1,57 @@
+import type { GalleryItem, SectionContent, SlideContent } from '../shared/defaultContent'
+
+export type { GalleryItem, SectionContent, SiteSettings } from '../shared/defaultContent'
+
+/** A published product, as returned by GET /api/products. */
 export interface Product {
   id: string
   name: string
+  slug: string
   category: string
-  /** One line, used on cards. */
-  shortDescription: string
-  /** Full description, used in the product modal. */
+  categoryId: string | null
+  shortDescription: string | null
   description: string
-  material: string
-  craftsmanship: string
+  material: string | null
+  craftsmanship: string | null
+  dimensions: string | null
+  variants: string[]
+  price: number | null
+  offerPrice: number | null
+  imageUrl: string
+  imageAlt: string | null
+  /** Main image first, then any extra ones. */
+  images: { url: string; alt: string }[]
   customizationAvailable: boolean
-  image: string
-  imageAlt: string
+  isFeatured: boolean
 }
 
-interface SlideBase {
+export interface Category {
   id: string
-  /** Small label above the heading, e.g. the step in the story. */
-  eyebrow?: string
-  heading: string
-  description?: string
-  cta?: { label: string; to: string }
-  alt: string
+  name: string
+  productCount: number
 }
 
-export interface ImageSlide extends SlideBase {
-  type: 'image'
-  src: string
-}
-
-export interface VideoSlide extends SlideBase {
-  type: 'video'
-  /** Leave empty to show only the poster. */
-  src: string
-  poster: string
-}
-
-export type Slide = ImageSlide | VideoSlide
-
-export interface GalleryItem {
+export interface Slide extends SlideContent {
   id: string
-  /** Image, or the poster frame when `video` is set. */
-  src: string
-  alt: string
-  /** Optional short silent film shown in place of the image. */
-  video?: string
+}
+
+export interface Offer {
+  id: string
+  title: string
+  description: string | null
+  discountText: string | null
+  bannerImageUrl: string | null
+  bannerImageAlt: string | null
+  ctaLabel: string | null
+  ctaUrl: string | null
+}
+
+export interface HomepageData {
+  slides: Slide[]
+  offers: Offer[]
+  gallery: GalleryItem[]
+}
+
+export interface PageData {
+  sections: Record<string, SectionContent>
 }

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { whatsappMessages, whatsappUrl } from '../lib/whatsapp'
+import { useSite } from '../context/SiteContext'
+import { whatsappMessages } from '../lib/whatsapp'
 import { WhatsAppIcon } from './Icons'
 
 interface WhatsAppButtonProps {
@@ -16,6 +17,8 @@ export function WhatsAppButton({
   className = '',
   children,
 }: WhatsAppButtonProps) {
+  const { whatsappUrl } = useSite()
+
   return (
     <a
       href={whatsappUrl(message)}
