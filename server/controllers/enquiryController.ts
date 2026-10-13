@@ -45,8 +45,8 @@ export const enquiryController = {
   async updateStatus(req: Request<{ id: string }>, res: Response) {
     if (!isUuid(req.params.id)) throw new HttpError(404, 'Enquiry not found')
 
-    const { status } = updateEnquirySchema.parse(req.body)
-    const enquiry = await enquiryModel.updateStatus(req.params.id, status)
+    const patch = updateEnquirySchema.parse(req.body)
+    const enquiry = await enquiryModel.update(req.params.id, patch)
     if (!enquiry) throw new HttpError(404, 'Enquiry not found')
 
     res.json({ success: true, data: enquiry })

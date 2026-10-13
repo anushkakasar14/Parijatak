@@ -25,6 +25,8 @@ async function syncToSheet(enquiry: Enquiry): Promise<boolean> {
       enquiryId: enquiry.id,
       error: errorMessage(err),
     })
+    // Keep the reason with the enquiry too; failing to record it must not hide the real result.
+    await enquiryModel.recordSheetFailure(enquiry.id, errorMessage(err)).catch(() => {})
     return false
   }
 }
@@ -39,7 +41,7 @@ export const enquiryService = {
     let productName: string | null = null
 
     if (input.productId) {
-      const product = await productModel.findActiveByIdOrSlug(input.productId)
+      const product = await productModel.findPublishedByIdOrSlug(input.productId)
       if (!product) {
         throw new HttpError(400, 'Please check the details you entered.', {
           productId: 'This product could not be found',

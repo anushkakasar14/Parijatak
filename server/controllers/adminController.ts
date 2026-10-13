@@ -6,11 +6,10 @@ import { googleSheetsService } from '../services/googleSheetsService.ts'
 export const adminController = {
   /** Everything the dashboard's first screen shows, in one request. */
   async overview(_req: Request, res: Response) {
-    const [enquiries, products, recent] = await Promise.all([
-      enquiryModel.stats(),
-      productModel.counts(),
-      enquiryModel.list({ limit: 5, offset: 0 }),
-    ])
+    // One query after another: a request should hold a single database connection.
+    const enquiries = await enquiryModel.stats()
+    const products = await productModel.counts()
+    const recent = await enquiryModel.list({ limit: 5, offset: 0 })
 
     res.json({
       success: true,

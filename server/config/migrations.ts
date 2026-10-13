@@ -1,3 +1,6 @@
+import type { Queryable } from './database.ts'
+import { seedContent } from './seedContent.ts'
+
 /**
  * Database migrations, applied in order and recorded in `schema_migrations`.
  *
@@ -11,6 +14,8 @@ export interface Migration {
   version: number
   name: string
   statements: string[]
+  /** Optional starting data, run once in the same transaction, after the statements. */
+  seed?: (tx: Queryable) => Promise<void>
 }
 
 export const migrations: Migration[] = [
@@ -99,5 +104,115 @@ export const migrations: Migration[] = [
       `CREATE INDEX admin_login_attempts_email_idx ON admin_login_attempts (email, created_at DESC)`,
       `CREATE INDEX admin_login_attempts_ip_idx ON admin_login_attempts (ip_address, created_at DESC)`,
     ],
+  },
+  {
+    version: 3,
+    name: 'content_management',
+    // Additive only: new tables and new nullable/defaulted columns. Existing rows are kept
+    // and back-filled; nothing is dropped or rewritten.
+    statements: [
+      `CREATE TABLE categories (
+        id            TEXT PRIMARY KEY,
+        name          TEXT NOT NULL UNIQUE,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+      )`,
+
+      // Products: richer detail and a publication status.
+      `ALTER TABLE products ADD COLUMN short_description TEXT`,
+      `ALTER TABLE products ADD COLUMN image_alt TEXT`,
+      `ALTER TABLE products ADD COLUMN craftsmanship TEXT`,
+      `ALTER TABLE products ADD COLUMN dimensions TEXT`,
+      `ALTER TABLE products ADD COLUMN variants JSONB NOT NULL DEFAULT '[]'`,
+      `ALTER TABLE products ADD COLUMN offer_price NUMERIC(10, 2)`,
+      `ALTER TABLE products ADD COLUMN display_order INTEGER NOT NULL DEFAULT 0`,
+      `ALTER TABLE products ADD COLUMN status TEXT NOT NULL DEFAULT 'draft'
+         CHECK (status IN ('draft', 'published', 'archived'))`,
+      `ALTER TABLE products ADD COLUMN category_id TEXT REFERENCES categories(id) ON DELETE RESTRICT`,
+      // Existing products keep their visibility: active → published, inactive → archived.
+      `UPDATE products SET status = CASE WHEN is_active THEN 'published' ELSE 'archived' END`,
+      // The three launch products were seeded with room names as categories; give them the
+      // product-type categories instead — only where that original value is still untouched.
+      `UPDATE products SET category = 'Bed Linens' WHERE id = 'bed-linens' AND category = 'Bedroom'`,
+      `UPDATE products SET category = 'Cushion Covers' WHERE id = 'cushion-covers' AND category = 'Living'`,
+      `UPDATE products SET category = 'Throws' WHERE id = 'throws' AND category = 'Living & Bedroom'`,
+      // Every category name already in use becomes a row in the new table.
+      `INSERT INTO categories (id, name)
+         SELECT DISTINCT trim(both '-' from lower(regexp_replace(category, '[^a-zA-Z0-9]+', '-', 'g'))), category FROM products
+         ON CONFLICT DO NOTHING`,
+      `UPDATE products SET category_id = trim(both '-' from lower(regexp_replace(category, '[^a-zA-Z0-9]+', '-', 'g')))
+         WHERE EXISTS (SELECT 1 FROM categories c WHERE c.id = trim(both '-' from lower(regexp_replace(products.category, '[^a-zA-Z0-9]+', '-', 'g'))))`,
+      `CREATE INDEX products_status_order_idx ON products (status, display_order)`,
+      `CREATE INDEX products_category_idx ON products (category_id)`,
+
+      // Enquiries: private notes for staff, and a record of why a Sheets sync failed.
+      `ALTER TABLE enquiries ADD COLUMN internal_notes TEXT`,
+      `ALTER TABLE enquiries ADD COLUMN sheet_sync_error TEXT`,
+      `ALTER TABLE enquiries ADD COLUMN sheet_sync_attempted_at TIMESTAMPTZ`,
+
+      `CREATE TABLE homepage_slides (
+        id            UUID PRIMARY KEY,
+        media_type    TEXT NOT NULL CHECK (media_type IN ('image', 'video')),
+        media_url     TEXT NOT NULL,
+        poster_url    TEXT,
+        alt_text      TEXT NOT NULL DEFAULT '',
+        eyebrow       TEXT,
+        heading       TEXT NOT NULL,
+        description   TEXT,
+        cta_label     TEXT,
+        cta_url       TEXT,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+        status        TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'archived')),
+        created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX homepage_slides_order_idx ON homepage_slides (status, display_order)`,
+
+      // Brand, contact, social and footer details, one JSON document per key.
+      `CREATE TABLE site_settings (
+        key        TEXT PRIMARY KEY,
+        value      JSONB NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )`,
+
+      // Editable text blocks of the Home, About and Collection pages. The set of blocks is
+      // fixed by the page designs; their wording and images are editable.
+      `CREATE TABLE page_sections (
+        id            TEXT PRIMARY KEY,
+        page          TEXT NOT NULL,
+        label         TEXT NOT NULL,
+        eyebrow       TEXT,
+        heading       TEXT NOT NULL,
+        body          TEXT NOT NULL DEFAULT '',
+        image_url     TEXT,
+        image_alt     TEXT,
+        cta_label     TEXT,
+        cta_url       TEXT,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX page_sections_page_idx ON page_sections (page, display_order)`,
+
+      `CREATE TABLE offers (
+        id               UUID PRIMARY KEY,
+        title            TEXT NOT NULL,
+        description      TEXT,
+        discount_text    TEXT,
+        banner_image_url TEXT,
+        banner_image_alt TEXT,
+        cta_label        TEXT,
+        cta_url          TEXT,
+        starts_at        TIMESTAMPTZ,
+        ends_at          TIMESTAMPTZ,
+        status           TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'archived')),
+        created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX offers_status_idx ON offers (status, starts_at, ends_at)`,
+    ],
+    // Starting content, written once. Later edits and deletions are never overwritten.
+    seed: seedContent,
   },
 ]

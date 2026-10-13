@@ -21,6 +21,10 @@ export interface Enquiry {
   updatedAt: string
   /** When the enquiry was copied to Google Sheets, or null if it has not been yet. */
   sheetSyncedAt: string | null
+  /** Why the last attempt to copy it failed, if it did. */
+  sheetSyncError: string | null
+  /** Private notes for staff. Never returned by a public endpoint. */
+  internalNotes: string | null
 }
 
 interface EnquiryRow {
@@ -37,6 +41,8 @@ interface EnquiryRow {
   created_at: Date
   updated_at: Date
   sheet_synced_at: Date | null
+  sheet_sync_error: string | null
+  internal_notes: string | null
 }
 
 function toEnquiry(row: EnquiryRow): Enquiry {
@@ -54,6 +60,8 @@ function toEnquiry(row: EnquiryRow): Enquiry {
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
     sheetSyncedAt: row.sheet_synced_at ? new Date(row.sheet_synced_at).toISOString() : null,
+    sheetSyncError: row.sheet_sync_error,
+    internalNotes: row.internal_notes,
   }
 }
 
@@ -224,9 +232,48 @@ export const enquiryModel = {
     }
   },
 
+  /** Changes the status and/or the internal notes. */
+  async update(
+    id: string,
+    patch: { status?: EnquiryStatus; internalNotes?: string | null },
+  ): Promise<Enquiry | null> {
+    const sets: string[] = []
+    const params: unknown[] = []
+    if (patch.status !== undefined) {
+      params.push(patch.status)
+      sets.push(`status = $${params.length}`)
+    }
+    if (patch.internalNotes !== undefined) {
+      params.push(patch.internalNotes)
+      sets.push(`internal_notes = $${params.length}`)
+    }
+    if (!sets.length) return this.findById(id)
+
+    const db = await getDb()
+    const { rows } = await db.query<EnquiryRow>(
+      `UPDATE enquiries SET ${sets.join(', ')}, updated_at = now() WHERE id = $${params.length + 1} RETURNING *`,
+      [...params, id],
+    )
+    return rows[0] ? toEnquiry(rows[0]) : null
+  },
+
   async markSheetSynced(id: string): Promise<void> {
     const db = await getDb()
-    await db.query('UPDATE enquiries SET sheet_synced_at = now() WHERE id = $1', [id])
+    await db.query(
+      `UPDATE enquiries
+          SET sheet_synced_at = now(), sheet_sync_attempted_at = now(), sheet_sync_error = NULL
+        WHERE id = $1`,
+      [id],
+    )
+  },
+
+  /** Records why a sync attempt failed, so it can be seen and retried later. */
+  async recordSheetFailure(id: string, reason: string): Promise<void> {
+    const db = await getDb()
+    await db.query(
+      'UPDATE enquiries SET sheet_sync_attempted_at = now(), sheet_sync_error = $2 WHERE id = $1',
+      [id, reason.slice(0, 300)],
+    )
   },
 
   /** Enquiries not yet in Google Sheets, oldest first. */

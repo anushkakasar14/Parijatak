@@ -3,7 +3,6 @@ import { resolve } from 'node:path'
 import pg from 'pg'
 import { env } from './env.ts'
 import { migrations } from './migrations.ts'
-import { seedProducts } from './seedProducts.ts'
 
 export interface QueryResult<T> {
   rows: T[]
@@ -105,6 +104,7 @@ async function migrate(db: Database): Promise<void> {
     for (const migration of migrations) {
       if (applied.has(migration.version)) continue
       for (const statement of migration.statements) await tx.query(statement)
+      await migration.seed?.(tx)
       await tx.query('INSERT INTO schema_migrations (version, name) VALUES ($1, $2)', [
         migration.version,
         migration.name,
@@ -122,16 +122,6 @@ async function open(): Promise<Database> {
   else db = await connectEmbedded(url === 'memory://' ? undefined : resolve('data', 'pglite'))
 
   await migrate(db)
-
-  // Seed the catalogue if it is empty.
-  for (const p of seedProducts) {
-    await db.query(
-      `INSERT INTO products (id, name, slug, category, description, image_url, is_featured)
-       VALUES ($1, $2, $3, $4, $5, $6, TRUE)
-       ON CONFLICT (id) DO NOTHING`,
-      [p.id, p.name, p.slug, p.category, p.description, p.imageUrl],
-    )
-  }
 
   return db
 }

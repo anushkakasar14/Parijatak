@@ -51,9 +51,22 @@ export const createEnquirySchema = z.object({
 
 export type CreateEnquiryInput = z.infer<typeof createEnquirySchema>
 
-export const updateEnquirySchema = z.strictObject({
-  status: z.enum(enquiryStatuses, `Status must be one of: ${enquiryStatuses.join(', ')}`),
-})
+export const updateEnquirySchema = z
+  .strictObject({
+    status: z
+      .enum(enquiryStatuses, `Status must be one of: ${enquiryStatuses.join(', ')}`)
+      .optional(),
+    internalNotes: z
+      .string()
+      .nullable()
+      .optional()
+      .transform((v) => (v == null ? v : sanitizeText(v) || null))
+      .pipe(z.string().max(2000, 'Notes are too long').nullable().optional()),
+  })
+  .refine((v) => v.status !== undefined || v.internalNotes !== undefined, {
+    message: 'Nothing to update',
+    path: ['status'],
+  })
 
 export const listEnquiriesSchema = z.object({
   status: z.enum(enquiryStatuses).optional(),
