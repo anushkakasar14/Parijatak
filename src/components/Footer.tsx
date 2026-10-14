@@ -8,10 +8,10 @@ import { SocialLinks } from './SocialLinks'
 export function Footer() {
   const { settings, whatsappUrl, whatsappDisplay } = useSite()
   const { brand, contact, footer } = settings
-  const linkClass = 'underline underline-offset-4 transition-colors hover:text-teal'
+  const linkClass = 'underline underline-offset-4 transition-colors hover:text-maroon'
 
   return (
-    <footer className="border-t border-line bg-cream">
+    <footer className="border-t border-gold/40 bg-cream">
       <div className="container-page grid gap-12 py-16 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.4fr] lg:gap-10 lg:py-20">
         <div>
           <Link to="/" aria-label={`${brand.name} — home`} className="inline-flex">
@@ -26,7 +26,7 @@ export function Footer() {
           <ul className="space-y-2.5">
             {navLinks.map(({ label, to }) => (
               <li key={to}>
-                <Link to={to} className="transition-colors hover:text-teal">
+                <Link to={to} className="transition-colors hover:text-maroon">
                   {label === 'Contact Us' ? 'Contact' : label}
                 </Link>
               </li>

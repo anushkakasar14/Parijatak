@@ -55,7 +55,7 @@ function SheetsCard({ sheets, onSynced }: { sheets: Overview['googleSheets']; on
   return (
     <section className={cardClass} aria-labelledby="sheets-heading">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="sheets-heading" className="font-sans text-lg font-medium text-slate-900">
+        <h2 id="sheets-heading" className="font-sans text-lg font-medium text-stone-900">
           Google Sheets
         </h2>
         {!sheets.configured ? (
@@ -67,7 +67,7 @@ function SheetsCard({ sheets, onSynced }: { sheets: Overview['googleSheets']; on
         )}
       </div>
 
-      <p className="mt-2 text-slate-600">
+      <p className="mt-2 text-stone-600">
         {!sheets.configured
           ? 'Google Sheets is not connected, so enquiries are not being copied to a sheet. Every enquiry is still saved here.'
           : sheets.pending
@@ -88,7 +88,7 @@ function SheetsCard({ sheets, onSynced }: { sheets: Overview['googleSheets']; on
               Send to Google Sheets
             </button>
           )}
-          <Link to="/admin/enquiries?synced=false" className="text-sm font-medium text-teal hover:underline">
+          <Link to="/admin/enquiries?synced=false" className="text-sm font-medium text-maroon hover:underline">
             See which ones
           </Link>
         </div>
@@ -143,13 +143,13 @@ export function OverviewPage() {
           <li key={status}>
             <Link
               to={`/admin/enquiries?status=${status}`}
-              className={`${cardClass} block transition-colors hover:border-teal`}
+              className={`${cardClass} block transition-colors hover:border-maroon`}
             >
               <StatusBadge status={status} />
-              <p className="mt-3 text-3xl font-medium text-slate-900 tabular-nums">
+              <p className="mt-3 text-3xl font-medium text-stone-900 tabular-nums">
                 {enquiries.byStatus[status]}
               </p>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-stone-500">
                 {enquiries.byStatus[status] === 1 ? 'enquiry' : 'enquiries'}
               </p>
             </Link>
@@ -164,8 +164,8 @@ export function OverviewPage() {
           ['Products on the website', products.active],
         ].map(([label, value]) => (
           <div key={label} className={cardClass}>
-            <dt className="text-sm text-slate-500">{label}</dt>
-            <dd className="mt-1 text-2xl font-medium text-slate-900 tabular-nums">{value}</dd>
+            <dt className="text-sm text-stone-500">{label}</dt>
+            <dd className="mt-1 text-2xl font-medium text-stone-900 tabular-nums">{value}</dd>
           </div>
         ))}
       </dl>
@@ -173,10 +173,10 @@ export function OverviewPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
         <section className={cardClass} aria-labelledby="recent-heading">
           <div className="flex items-center justify-between gap-3">
-            <h2 id="recent-heading" className="font-sans text-lg font-medium text-slate-900">
+            <h2 id="recent-heading" className="font-sans text-lg font-medium text-stone-900">
               Latest enquiries
             </h2>
-            <Link to="/admin/enquiries" className="text-sm font-medium text-teal hover:underline">
+            <Link to="/admin/enquiries" className="text-sm font-medium text-maroon hover:underline">
               View all
             </Link>
           </div>
@@ -188,12 +188,12 @@ export function OverviewPage() {
               </EmptyState>
             </div>
           ) : (
-            <ul className="mt-3 divide-y divide-slate-100">
+            <ul className="mt-3 divide-y divide-stone-100">
               {recentEnquiries.map((enquiry) => (
                 <li key={enquiry.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3">
                   <div className="min-w-0">
-                    <p className="truncate font-medium text-slate-900">{enquiry.name}</p>
-                    <p className="truncate text-sm text-slate-500">
+                    <p className="truncate font-medium text-stone-900">{enquiry.name}</p>
+                    <p className="truncate text-sm text-stone-500">
                       {enquiry.productName ?? enquiry.inquiryType} · {formatDate(enquiry.createdAt)}
                     </p>
                   </div>

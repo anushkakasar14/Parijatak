@@ -35,16 +35,16 @@ export function LoginPage() {
   return (
     <main className="grid min-h-svh place-items-center px-4 py-10">
       <div className="w-full max-w-sm">
-        <p className="text-center text-sm font-medium tracking-[0.18em] text-teal uppercase">
+        <p className="text-center text-sm font-medium tracking-[0.18em] text-maroon uppercase">
           Parijatak
         </p>
-        <h1 className="mt-2 text-center font-sans text-2xl font-medium text-slate-900">
+        <h1 className="mt-2 text-center font-sans text-2xl font-medium text-stone-900">
           Admin sign in
         </h1>
 
         <form
           onSubmit={onSubmit}
-          className="mt-8 space-y-5 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+          className="mt-8 space-y-5 rounded-lg border border-stone-200 bg-white p-6 shadow-sm"
         >
           {sessionExpired && !error && (
             <p role="status" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -96,7 +96,7 @@ export function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-5 text-center text-sm text-slate-500">
+        <p className="mt-5 text-center text-sm text-stone-500">
           Forgotten your password? Ask the site owner to reset it.
         </p>
       </div>

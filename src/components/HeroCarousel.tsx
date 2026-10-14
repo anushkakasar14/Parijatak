@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import type { KeyboardEvent, ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { KeyboardEvent, ReactNode, TouchEvent } from 'react'
 import { useSite } from '../context/SiteContext'
 import type { Slide } from '../types'
 import { SmartLink } from './Content'
@@ -64,6 +64,22 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
     if (e.key === 'ArrowRight') go(index + 1)
   }
 
+  // Swipe left or right on touch screens. A mostly-vertical movement is a page scroll.
+  const touchStart = useRef<{ x: number; y: number } | null>(null)
+  const onTouchStart = (e: TouchEvent) => {
+    const touch = e.touches[0]
+    touchStart.current = { x: touch.clientX, y: touch.clientY }
+  }
+  const onTouchEnd = (e: TouchEvent) => {
+    const start = touchStart.current
+    touchStart.current = null
+    if (!start || count < 2) return
+    const touch = e.changedTouches[0]
+    const dx = touch.clientX - start.x
+    const dy = touch.clientY - start.y
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) go(index + (dx < 0 ? 1 : -1))
+  }
+
   const current = slides[index]
   const arrowClass =
     'absolute top-[40%] z-10 grid h-11 w-11 -translate-y-1/2 place-items-center text-ivory/75 drop-shadow-[0_1px_2px_rgb(0_0_0/0.5)] transition-colors hover:text-ivory'
@@ -78,6 +94,8 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
       onFocus={() => setHeld(true)}
       onBlur={() => setHeld(false)}
       onKeyDown={onKeyDown}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
     >
       {slides.map((slide, i) => (
         <div
@@ -125,7 +143,7 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
               <p className="mt-3 max-w-md text-ivory/90 md:text-lg">{current.description}</p>
             )}
             {current.ctaLabel && (
-              <SmartLink to={current.ctaUrl} className="btn btn-light mt-5 md:mt-7">
+              <SmartLink to={current.ctaUrl} className="btn btn-primary mt-5 md:mt-7">
                 {current.ctaLabel}
               </SmartLink>
             )}
@@ -155,7 +173,7 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
                 type="button"
                 onClick={() => setPlaying((p) => !p)}
                 aria-label={playing ? 'Pause slideshow' : 'Play slideshow'}
-                className="grid h-11 w-11 place-items-center border border-ivory/50 transition-colors hover:bg-ivory hover:text-ink"
+                className="grid h-11 w-11 place-items-center rounded-full border border-ivory/50 transition-colors hover:bg-ivory hover:text-ink"
               >
                 {playing ? <PauseIcon /> : <PlayIcon />}
               </button>

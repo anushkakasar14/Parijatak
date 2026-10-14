@@ -43,7 +43,7 @@ function AdminNotFound() {
   return (
     <>
       <PageHeader title="Page not found" description="There is nothing at this address." />
-      <Link to="/admin" className="font-medium text-teal hover:underline">
+      <Link to="/admin" className="font-medium text-maroon hover:underline">
         Back to the overview
       </Link>
     </>
@@ -66,7 +66,7 @@ export default function AdminApp() {
   }, [])
 
   return (
-    <div className="min-h-svh bg-slate-100 font-sans text-slate-800">
+    <div className="min-h-svh bg-stone-100 font-sans text-stone-800">
       <AuthProvider>
         <Routes>
           <Route path="login" element={<LoginPage />} />

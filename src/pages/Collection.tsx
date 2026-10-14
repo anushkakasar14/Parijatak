@@ -34,8 +34,8 @@ export default function Collection() {
   const choose = (id: string) => setParams(id ? { category: id } : {}, { replace: true })
 
   const chipClass = (selected: boolean) =>
-    `border px-4 py-2 text-[0.8125rem] font-medium tracking-[0.14em] uppercase transition-colors ${
-      selected ? 'border-ink bg-ink text-ivory' : 'border-ink/30 hover:border-ink'
+    `rounded-full border px-5 py-2 text-[0.8125rem] font-medium tracking-[0.14em] uppercase transition-colors ${
+      selected ? 'border-maroon bg-maroon text-ivory' : 'border-ink/25 hover:border-maroon hover:text-maroon'
     }`
 
   return (
@@ -79,10 +79,11 @@ export default function Collection() {
           <div
             role="status"
             aria-label="Loading products"
-            className="grid gap-x-8 gap-y-16 md:grid-cols-12 md:gap-y-24"
+            className="grid gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-3"
           >
-            <ProductCardSkeleton aspect="aspect-[4/3]" className="md:col-span-7" />
-            <ProductCardSkeleton aspect="aspect-[3/4]" className="md:col-span-4 md:col-start-9 md:mt-40" />
+            {[0, 1, 2].map((i) => (
+              <ProductCardSkeleton key={i} />
+            ))}
           </div>
         ) : shown.length === 0 ? (
           <p className="border border-line bg-cream px-6 py-14 text-center font-display text-2xl">

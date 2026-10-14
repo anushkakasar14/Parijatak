@@ -108,7 +108,7 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
                       aria-label={`Show image ${i + 1} of ${images.length}`}
                       aria-current={i === imageIndex ? 'true' : undefined}
                       className={`block h-16 w-16 overflow-hidden border-2 ${
-                        i === imageIndex ? 'border-teal' : 'border-transparent'
+                        i === imageIndex ? 'border-maroon' : 'border-transparent'
                       }`}
                     >
                       <img src={thumbnail.url} alt="" className="h-full w-full object-cover" />

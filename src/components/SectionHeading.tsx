@@ -7,7 +7,7 @@ interface SectionHeadingProps {
   /** Heading level — use `h1` once per page. */
   as?: 'h1' | 'h2'
   align?: 'left' | 'center'
-  /** Use on dark (teal) backgrounds. */
+  /** Use on dark (maroon) backgrounds. */
   inverted?: boolean
   className?: string
 }

@@ -8,17 +8,37 @@ interface LogoProps {
 /** Renders the supplied Parijatak logo file as-is. */
 export function Logo({ className = 'h-[4.5rem] md:h-[5.75rem]' }: LogoProps) {
   const { settings } = useSite()
-  // The supplied file has a white background; multiply lets the page colour show through it.
+  return <img src={site.logoSrc} alt={settings.brand.name} className={`${className} w-auto`} />
+}
+
+/**
+ * A small divider drawn from the logo's dotted ring: a diamond between two dots and two
+ * fine antique-gold rules. Used sparingly, to open a section.
+ */
+export function Ornament({
+  className = '',
+  align = 'center',
+}: {
+  className?: string
+  align?: 'center' | 'start'
+}) {
   return (
-    <img
-      src={site.logoSrc}
-      alt={settings.brand.name}
-      className={`${className} w-auto mix-blend-multiply`}
-    />
+    <span
+      className={`flex items-center gap-3 text-gold ${align === 'center' ? 'justify-center' : 'justify-start'} ${className}`}
+      aria-hidden="true"
+    >
+      <span className="h-px w-12 bg-gold/60 md:w-20" />
+      <svg viewBox="0 0 40 12" width="40" height="12" fill="currentColor">
+        <circle cx="4" cy="6" r="1.6" />
+        <path d="M20 1l5 5-5 5-5-5z" />
+        <circle cx="36" cy="6" r="1.6" />
+      </svg>
+      <span className="h-px w-12 bg-gold/60 md:w-20" />
+    </span>
   )
 }
 
-/** Five thread-swatches in the logo colours — the site's one recurring ornament. */
+/** Five thread-swatches in the logo colours. */
 export function Swatches({ className = '' }: { className?: string }) {
   return (
     <span className={`flex gap-1.5 ${className}`} aria-hidden="true">

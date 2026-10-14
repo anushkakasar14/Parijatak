@@ -1,5 +1,5 @@
 import { FadeIn, Paragraphs, SmartLink } from '../components/Content'
-import { Swatches } from '../components/Logo'
+import { Ornament } from '../components/Logo'
 import { SectionHeading } from '../components/SectionHeading'
 import { SocialLinks } from '../components/SocialLinks'
 import { StorySection } from '../components/StorySection'
@@ -9,7 +9,7 @@ import { useSeo } from '../hooks/useSeo'
 import { whatsappMessages } from '../lib/whatsapp'
 
 /**
- * The page's opening line sets its last clause in teal italics
+ * The page's opening line sets its last clause in maroon italics
  * ("…authentic, *and artful.*"). The split is made at the final comma, so the
  * treatment survives the wording being edited.
  */
@@ -18,7 +18,7 @@ function AccentHeading({ text }: { text: string }) {
   if (comma === -1) return <>{text}</>
   return (
     <>
-      {text.slice(0, comma + 1)} <em className="text-teal">{text.slice(comma + 1).trim()}</em>
+      {text.slice(0, comma + 1)} <em className="text-maroon">{text.slice(comma + 1).trim()}</em>
     </>
   )
 }
@@ -40,7 +40,7 @@ export default function About() {
     <FadeIn ready={ready}>
       {/* 1. Brand introduction */}
       <section className="container-page py-20 md:py-32">
-        <Swatches className="mb-10" />
+        <Ornament className="mb-10" align="start" />
         <h1 className="max-w-5xl text-5xl md:text-7xl lg:text-[5.25rem]">
           <AccentHeading text={intro.heading} />
         </h1>
@@ -68,7 +68,7 @@ export default function About() {
       <StorySection content={section('about.living')} aspect="aspect-[4/3]" />
 
       {/* 5. Personalized design */}
-      <section className="bg-teal text-ivory">
+      <section className="bg-maroon text-ivory">
         <div className="container-page grid items-end gap-10 py-20 md:grid-cols-[1.4fr_1fr] md:py-28">
           <SectionHeading eyebrow={custom.eyebrow ?? undefined} title={custom.heading} inverted>
             <Paragraphs text={custom.body} />

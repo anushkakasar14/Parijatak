@@ -59,24 +59,24 @@ function EnquiryDetail({
   }
 
   const whatsappNumber = enquiry.phone.replace(/\D/g, '')
-  const linkClass = 'font-medium text-teal hover:underline'
+  const linkClass = 'font-medium text-maroon hover:underline'
 
   return (
     <Dialog open onClose={onClose} title={`Enquiry from ${enquiry.name}`} width="max-w-2xl">
       <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
         <div>
-          <dt className="text-sm text-slate-500">Received</dt>
+          <dt className="text-sm text-stone-500">Received</dt>
           <dd>{formatDate(enquiry.createdAt)}</dd>
         </div>
         <div>
-          <dt className="text-sm text-slate-500">About</dt>
+          <dt className="text-sm text-stone-500">About</dt>
           <dd>
             {enquiry.inquiryType}
             {enquiry.productName && ` — ${enquiry.productName}`}
           </dd>
         </div>
         <div>
-          <dt className="text-sm text-slate-500">Email</dt>
+          <dt className="text-sm text-stone-500">Email</dt>
           <dd className="break-all">
             <a href={`mailto:${enquiry.email}`} className={linkClass}>
               {enquiry.email}
@@ -84,7 +84,7 @@ function EnquiryDetail({
           </dd>
         </div>
         <div>
-          <dt className="text-sm text-slate-500">Contact number</dt>
+          <dt className="text-sm text-stone-500">Contact number</dt>
           <dd className="flex flex-wrap gap-x-4">
             <a href={`tel:${enquiry.phone}`} className={linkClass}>
               {enquiry.phone}
@@ -100,13 +100,13 @@ function EnquiryDetail({
           </dd>
         </div>
         <div className="sm:col-span-2">
-          <dt className="text-sm text-slate-500">Message</dt>
-          <dd className="mt-1 rounded-md bg-slate-50 p-3 break-words whitespace-pre-wrap">
+          <dt className="text-sm text-stone-500">Message</dt>
+          <dd className="mt-1 rounded-md bg-stone-50 p-3 break-words whitespace-pre-wrap">
             {enquiry.message}
           </dd>
         </div>
         <div className="sm:col-span-2">
-          <dt className="text-sm text-slate-500">Google Sheets</dt>
+          <dt className="text-sm text-stone-500">Google Sheets</dt>
           <dd>
             {enquiry.sheetSyncedAt
               ? `Copied to the sheet on ${formatDate(enquiry.sheetSyncedAt)}`
@@ -115,7 +115,7 @@ function EnquiryDetail({
         </div>
       </dl>
 
-      <div className="mt-6 border-t border-slate-200 pt-5">
+      <div className="mt-6 border-t border-stone-200 pt-5">
         {result && (
           <div className="mb-4">
             <Notice kind={result.kind}>{result.text}</Notice>
@@ -150,7 +150,7 @@ function EnquiryDetail({
             </button>
           </div>
         ) : (
-          <p className="flex items-center gap-3 text-slate-600">
+          <p className="flex items-center gap-3 text-stone-600">
             Status <StatusBadge status={enquiry.status} />
             <span className="text-sm">Your account can view enquiries but not change them.</span>
           </p>
@@ -224,7 +224,7 @@ export function EnquiriesPage() {
       <form
         role="search"
         onSubmit={(e) => e.preventDefault()}
-        className="mb-5 grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]"
+        className="mb-5 grid gap-3 rounded-lg border border-stone-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]"
       >
         <div>
           <label htmlFor="filter-search" className="sr-only">
@@ -324,10 +324,10 @@ export function EnquiriesPage() {
       ) : (
         <div aria-busy={loading} className={loading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
           {/* Wide screens: table */}
-          <div className="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white md:block">
+          <div className="hidden overflow-x-auto rounded-lg border border-stone-200 bg-white md:block">
             <table className="w-full text-left text-sm">
               <caption className="sr-only">Customer enquiries</caption>
-              <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
+              <thead className="border-b border-stone-200 bg-stone-50 text-stone-600">
                 <tr>
                   {['Received', 'Customer', 'About', 'Status', 'Sheet', ''].map((heading, i) => (
                     <th key={i} scope="col" className="px-4 py-3 font-medium">
@@ -336,20 +336,20 @@ export function EnquiriesPage() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-stone-100">
                 {data.data.map((enquiry) => (
-                  <tr key={enquiry.id} className="align-top hover:bg-slate-50">
-                    <td className="px-4 py-3 whitespace-nowrap text-slate-600">
+                  <tr key={enquiry.id} className="align-top hover:bg-stone-50">
+                    <td className="px-4 py-3 whitespace-nowrap text-stone-600">
                       {formatDate(enquiry.createdAt)}
                     </td>
                     <td className="px-4 py-3">
-                      <p className="font-medium text-slate-900">{enquiry.name}</p>
-                      <p className="break-all text-slate-500">{enquiry.email}</p>
-                      <p className="text-slate-500">{enquiry.phone}</p>
+                      <p className="font-medium text-stone-900">{enquiry.name}</p>
+                      <p className="break-all text-stone-500">{enquiry.email}</p>
+                      <p className="text-stone-500">{enquiry.phone}</p>
                     </td>
                     <td className="px-4 py-3">
                       <p>{enquiry.inquiryType}</p>
-                      {enquiry.productName && <p className="text-slate-500">{enquiry.productName}</p>}
+                      {enquiry.productName && <p className="text-stone-500">{enquiry.productName}</p>}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={enquiry.status} />
@@ -362,7 +362,7 @@ export function EnquiriesPage() {
                         type="button"
                         onClick={() => setSelected(enquiry)}
                         aria-haspopup="dialog"
-                        className="font-medium text-teal hover:underline"
+                        className="font-medium text-maroon hover:underline"
                       >
                         View<span className="sr-only"> enquiry from {enquiry.name}</span>
                       </button>
@@ -381,16 +381,16 @@ export function EnquiriesPage() {
                   type="button"
                   onClick={() => setSelected(enquiry)}
                   aria-haspopup="dialog"
-                  className="block w-full rounded-lg border border-slate-200 bg-white p-4 text-left"
+                  className="block w-full rounded-lg border border-stone-200 bg-white p-4 text-left"
                 >
                   <span className="flex items-start justify-between gap-3">
-                    <span className="font-medium text-slate-900">{enquiry.name}</span>
+                    <span className="font-medium text-stone-900">{enquiry.name}</span>
                     <StatusBadge status={enquiry.status} />
                   </span>
-                  <span className="mt-1 block text-sm text-slate-600">
+                  <span className="mt-1 block text-sm text-stone-600">
                     {enquiry.productName ?? enquiry.inquiryType}
                   </span>
-                  <span className="mt-2 flex items-center justify-between gap-3 text-sm text-slate-500">
+                  <span className="mt-2 flex items-center justify-between gap-3 text-sm text-stone-500">
                     {formatDate(enquiry.createdAt)}
                     {!enquiry.sheetSyncedAt && <Pill tone="warn">Not in sheet</Pill>}
                   </span>
@@ -400,7 +400,7 @@ export function EnquiriesPage() {
           </ul>
 
           <nav aria-label="Pages" className="mt-5 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-stone-600">
               {total} {total === 1 ? 'enquiry' : 'enquiries'} · page {page} of {pageCount}
             </p>
             <div className="flex gap-2">

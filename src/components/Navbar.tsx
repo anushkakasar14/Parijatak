@@ -19,7 +19,7 @@ export function Navbar() {
             aria-label="Open menu"
             aria-haspopup="dialog"
             aria-controls="mobile-menu"
-            className="-ml-2.5 grid h-11 w-11 place-items-center transition-colors hover:text-teal md:h-12 md:w-12"
+            className="-ml-2.5 grid h-11 w-11 place-items-center rounded-full transition-colors hover:bg-cream hover:text-maroon md:h-12 md:w-12"
           >
             <MenuIcon className="h-6 w-6 md:h-8 md:w-8" />
           </button>

@@ -40,7 +40,7 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
     <nav aria-label="Admin" className="space-y-6">
       {navGroups.map((group) => (
         <div key={group.heading}>
-          <p className="px-3 text-xs font-medium tracking-wider text-slate-400 uppercase">
+          <p className="px-3 text-xs font-medium tracking-wider text-stone-400 uppercase">
             {group.heading}
           </p>
           <ul className="mt-2 space-y-0.5">
@@ -53,8 +53,8 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
                   className={({ isActive }) =>
                     `flex min-h-10 items-center justify-between gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
                       isActive
-                        ? 'bg-teal text-white'
-                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                        ? 'bg-maroon text-white'
+                        : 'text-stone-700 hover:bg-stone-100 hover:text-stone-900'
                     }`
                   }
                 >
@@ -72,8 +72,8 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
 
 function Brand() {
   return (
-    <Link to="/admin" className="block text-sm font-medium tracking-[0.18em] text-teal uppercase">
-      Parijatak <span className="text-slate-400">Admin</span>
+    <Link to="/admin" className="block text-sm font-medium tracking-[0.18em] text-maroon uppercase">
+      Parijatak <span className="text-stone-400">Admin</span>
     </Link>
   )
 }
@@ -107,8 +107,8 @@ export function AdminLayout() {
 
   return (
     <div className="min-h-svh lg:pl-64">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
-        <div className="flex h-16 items-center border-b border-slate-200 px-6">
+      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-stone-200 bg-white lg:flex">
+        <div className="flex h-16 items-center border-b border-stone-200 px-6">
           <Brand />
         </div>
         <div className="flex-1 overflow-y-auto p-3 pt-5">
@@ -118,7 +118,7 @@ export function AdminLayout() {
           href="/"
           target="_blank"
           rel="noopener noreferrer"
-          className="border-t border-slate-200 px-6 py-4 text-sm text-slate-600 hover:text-teal"
+          className="border-t border-stone-200 px-6 py-4 text-sm text-stone-600 hover:text-maroon"
         >
           View website ↗
         </a>
@@ -129,15 +129,15 @@ export function AdminLayout() {
         aria-label="Admin menu"
         onClose={() => setMenuOpen(false)}
         onClick={(e) => e.target === e.currentTarget && setMenuOpen(false)}
-        className="m-0 h-dvh max-h-none w-[min(18rem,85vw)] max-w-none bg-white p-0 font-sans text-slate-800 backdrop:bg-slate-900/50 lg:hidden"
+        className="m-0 h-dvh max-h-none w-[min(18rem,85vw)] max-w-none bg-white p-0 font-sans text-stone-800 backdrop:bg-stone-900/50 lg:hidden"
       >
-        <div className="flex h-16 items-center justify-between border-b border-slate-200 px-5">
+        <div className="flex h-16 items-center justify-between border-b border-stone-200 px-5">
           <Brand />
           <button
             type="button"
             onClick={() => setMenuOpen(false)}
             aria-label="Close menu"
-            className="-mr-2 grid h-10 w-10 place-items-center rounded-md text-slate-500 hover:bg-slate-100"
+            className="-mr-2 grid h-10 w-10 place-items-center rounded-md text-stone-500 hover:bg-stone-100"
           >
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true">
               <path d="M5 5l14 14M19 5L5 19" />
@@ -149,14 +149,14 @@ export function AdminLayout() {
         </div>
       </dialog>
 
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 sm:px-6">
+      <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-stone-200 bg-white px-4 sm:px-6">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => setMenuOpen(true)}
             aria-label="Open menu"
             aria-haspopup="dialog"
-            className="-ml-2 grid h-10 w-10 place-items-center rounded-md text-slate-600 hover:bg-slate-100 lg:hidden"
+            className="-ml-2 grid h-10 w-10 place-items-center rounded-md text-stone-600 hover:bg-stone-100 lg:hidden"
           >
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true">
               <path d="M3 7h18M3 12h18M3 17h18" />
@@ -168,8 +168,8 @@ export function AdminLayout() {
         </div>
 
         <div className="flex items-center gap-3">
-          <p className="hidden text-sm text-slate-600 sm:block">
-            {user.name} <span className="text-slate-400">· {user.role}</span>
+          <p className="hidden text-sm text-stone-600 sm:block">
+            {user.name} <span className="text-stone-400">· {user.role}</span>
           </p>
           <button type="button" onClick={onLogout} disabled={signingOut} className={secondaryButtonClass}>
             {signingOut ? 'Signing out…' : 'Sign out'}

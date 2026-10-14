@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { FadeIn, LoadError, Paragraphs, SmartLink } from '../components/Content'
 import { HeroCarousel, HeroFallback, HeroPlaceholder } from '../components/HeroCarousel'
 import { InstagramSection } from '../components/InstagramSection'
-import { Swatches } from '../components/Logo'
+import { Ornament } from '../components/Logo'
 import { ProductCard, ProductCardSkeleton } from '../components/ProductCard'
 import { SectionHeading } from '../components/SectionHeading'
 import { StorySection } from '../components/StorySection'
@@ -13,22 +13,20 @@ import { useSeo } from '../hooks/useSeo'
 import { whatsappMessages } from '../lib/whatsapp'
 import type { HomepageData, Offer, Product } from '../types'
 
-// Staggered offsets give the featured row an editorial rhythm on desktop.
-const featuredOffsets = ['', 'md:mt-20', 'md:mt-8']
 const FEATURED_COUNT = 3
 
 /** A slim announcement band. Rendered only while an offer is published and in date. */
 function OfferBanner({ offer }: { offer: Offer }) {
   return (
-    <aside aria-label="Current offer" className="bg-maroon text-ivory">
+    <aside aria-label="Current offer" className="border-b border-gold/40 bg-cream text-ink">
       <div className="container-page flex flex-wrap items-center justify-center gap-x-5 gap-y-2 py-3 text-center text-sm">
         <p>
           <strong className="font-medium">{offer.title}</strong>
           {offer.discountText && <span> — {offer.discountText}</span>}
-          {offer.description && <span className="text-ivory/85"> · {offer.description}</span>}
+          {offer.description && <span className="text-muted"> · {offer.description}</span>}
         </p>
         {offer.ctaLabel && (
-          <SmartLink to={offer.ctaUrl} className="underline underline-offset-4 hover:text-ivory/80">
+          <SmartLink to={offer.ctaUrl} className="font-medium text-maroon underline underline-offset-4 hover:text-maroon-deep">
             {offer.ctaLabel}
           </SmartLink>
         )}
@@ -47,8 +45,8 @@ function FeaturedProducts() {
   if (status === 'loading') {
     return (
       <div role="status" aria-label="Loading products" className="grid gap-x-8 gap-y-14 md:grid-cols-3">
-        {featuredOffsets.map((offset) => (
-          <ProductCardSkeleton key={offset} className={offset} />
+        {[0, 1, 2].map((i) => (
+          <ProductCardSkeleton key={i} />
         ))}
       </div>
     )
@@ -65,8 +63,8 @@ function FeaturedProducts() {
 
   return (
     <div className="grid gap-x-8 gap-y-14 md:grid-cols-3">
-      {shown.map((product, i) => (
-        <ProductCard key={product.id} product={product} className={featuredOffsets[i % 3]} />
+      {shown.map((product) => (
+        <ProductCard key={product.id} product={product} />
       ))}
     </div>
   )
@@ -104,7 +102,7 @@ export default function Home() {
       <FadeIn ready={ready}>
         {/* Brand introduction */}
         <section className="container-page py-24 md:py-36">
-          <Swatches className="mb-10 justify-center" />
+          <Ornament className="mb-10" />
           <SectionHeading eyebrow={intro.eyebrow ?? undefined} title={intro.heading} align="center">
             <Paragraphs text={intro.body} />
           </SectionHeading>
@@ -147,7 +145,7 @@ export default function Home() {
         </div>
 
         {/* Personalized textiles */}
-        <section className="bg-teal text-ivory">
+        <section className="bg-maroon text-ivory">
           <div className="container-page grid items-end gap-10 py-20 md:grid-cols-[1.4fr_1fr] md:py-28">
             <SectionHeading eyebrow={custom.eyebrow ?? undefined} title={custom.heading} inverted>
               <Paragraphs text={custom.body} />

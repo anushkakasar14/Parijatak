@@ -31,7 +31,7 @@ export function SocialLinks({ variant = 'list', className = '' }: SocialLinksPro
             className={
               isButtons
                 ? 'btn btn-outline'
-                : 'inline-flex items-center gap-2.5 transition-colors hover:text-teal'
+                : 'inline-flex items-center gap-2.5 transition-colors hover:text-maroon'
             }
           >
             {icon}

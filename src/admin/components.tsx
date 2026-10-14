@@ -10,7 +10,7 @@ const statusStyles: Record<EnquiryStatus, string> = {
   new: 'bg-sky-100 text-sky-900 ring-sky-200',
   contacted: 'bg-amber-100 text-amber-900 ring-amber-200',
   converted: 'bg-emerald-100 text-emerald-900 ring-emerald-200',
-  closed: 'bg-slate-200 text-slate-700 ring-slate-300',
+  closed: 'bg-stone-200 text-stone-700 ring-stone-300',
 }
 
 const pillClass =
@@ -22,7 +22,7 @@ export function StatusBadge({ status }: { status: EnquiryStatus }) {
 
 export function Pill({ tone = 'neutral', children }: { tone?: 'neutral' | 'ok' | 'warn'; children: ReactNode }) {
   const tones = {
-    neutral: 'bg-slate-100 text-slate-600 ring-slate-200',
+    neutral: 'bg-stone-100 text-stone-600 ring-stone-200',
     ok: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
     warn: 'bg-amber-50 text-amber-900 ring-amber-200',
   }
@@ -33,8 +33,8 @@ export function PageHeader({ title, description, action }: { title: string; desc
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="font-sans text-2xl font-medium text-slate-900">{title}</h1>
-        {description && <p className="mt-1 max-w-2xl text-slate-600">{description}</p>}
+        <h1 className="font-sans text-2xl font-medium text-stone-900">{title}</h1>
+        {description && <p className="mt-1 max-w-2xl text-stone-600">{description}</p>}
       </div>
       {action}
     </div>
@@ -43,10 +43,10 @@ export function PageHeader({ title, description, action }: { title: string; desc
 
 export function LoadingBlock({ label = 'Loading…' }: { label?: string }) {
   return (
-    <div role="status" className="flex items-center justify-center gap-3 py-16 text-slate-500">
+    <div role="status" className="flex items-center justify-center gap-3 py-16 text-stone-500">
       <span
         aria-hidden="true"
-        className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-teal"
+        className="h-5 w-5 animate-spin rounded-full border-2 border-stone-300 border-t-maroon"
       />
       {label}
     </div>
@@ -71,9 +71,9 @@ export function ErrorNotice({ message, onRetry }: { message: string; onRetry?: (
 
 export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
-      <p className="font-medium text-slate-900">{title}</p>
-      {children && <p className="mx-auto mt-1 max-w-md text-slate-600">{children}</p>}
+    <div className="rounded-lg border border-dashed border-stone-300 bg-white px-6 py-14 text-center">
+      <p className="font-medium text-stone-900">{title}</p>
+      {children && <p className="mx-auto mt-1 max-w-md text-stone-600">{children}</p>}
     </div>
   )
 }
@@ -118,19 +118,19 @@ export function Dialog({ open, onClose, title, children, width = 'max-w-lg' }: D
       aria-labelledby="admin-dialog-title"
       onClose={onClose}
       onClick={(e) => e.target === e.currentTarget && onClose()}
-      className={`m-auto max-h-[90svh] w-[calc(100%-2rem)] ${width} overflow-y-auto rounded-lg bg-white p-0 font-sans text-slate-800 shadow-xl backdrop:bg-slate-900/50`}
+      className={`m-auto max-h-[90svh] w-[calc(100%-2rem)] ${width} overflow-y-auto rounded-lg bg-white p-0 font-sans text-stone-800 shadow-xl backdrop:bg-stone-900/50`}
     >
       {open && (
         <div className="p-6">
           <div className="mb-4 flex items-start justify-between gap-4">
-            <h2 id="admin-dialog-title" className="font-sans text-lg font-medium text-slate-900">
+            <h2 id="admin-dialog-title" className="font-sans text-lg font-medium text-stone-900">
               {title}
             </h2>
             <button
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="-mt-2 -mr-2 grid h-10 w-10 place-items-center rounded-md text-slate-500 hover:bg-slate-100"
+              className="-mt-2 -mr-2 grid h-10 w-10 place-items-center rounded-md text-stone-500 hover:bg-stone-100"
             >
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true">
                 <path d="M5 5l14 14M19 5L5 19" />
@@ -157,7 +157,7 @@ interface ConfirmDialogProps {
 export function ConfirmDialog({ open, title, children, confirmLabel, busy, onConfirm, onCancel }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onClose={onCancel} title={title} width="max-w-md">
-      <div className="text-slate-600">{children}</div>
+      <div className="text-stone-600">{children}</div>
       <div className="mt-6 flex flex-wrap justify-end gap-3">
         <button type="button" onClick={onCancel} disabled={busy} className={secondaryButtonClass}>
           Cancel

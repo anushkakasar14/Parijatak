@@ -27,20 +27,20 @@ export function ProductsPage() {
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {data.map((product) => (
-            <li key={product.id} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <li key={product.id} className="overflow-hidden rounded-lg border border-stone-200 bg-white">
               <img
                 src={product.imageUrl}
                 alt=""
                 loading="lazy"
-                className="aspect-[4/3] w-full bg-slate-100 object-cover"
+                className="aspect-[4/3] w-full bg-stone-100 object-cover"
               />
               <div className="p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="font-sans text-base font-medium text-slate-900">{product.name}</h2>
+                  <h2 className="font-sans text-base font-medium text-stone-900">{product.name}</h2>
                   <Pill tone="ok">Published</Pill>
                 </div>
-                <p className="mt-0.5 text-sm text-slate-500">{product.category}</p>
-                <p className="mt-2 line-clamp-3 text-sm text-slate-600">{product.description}</p>
+                <p className="mt-0.5 text-sm text-stone-500">{product.category}</p>
+                <p className="mt-2 line-clamp-3 text-sm text-stone-600">{product.description}</p>
               </div>
             </li>
           ))}

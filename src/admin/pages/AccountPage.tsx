@@ -38,7 +38,7 @@ function ChangePasswordForm() {
 
   return (
     <form onSubmit={onSubmit} className={`${cardClass} space-y-4`}>
-      <h2 className="font-sans text-lg font-medium text-slate-900">Change password</h2>
+      <h2 className="font-sans text-lg font-medium text-stone-900">Change password</h2>
 
       {message && <Notice kind={message.kind}>{message.text}</Notice>}
 
@@ -80,7 +80,7 @@ function ChangePasswordForm() {
           aria-describedby="new-password-hint"
           className={fieldClass}
         />
-        <p id="new-password-hint" className="mt-1.5 text-sm text-slate-500">
+        <p id="new-password-hint" className="mt-1.5 text-sm text-stone-500">
           {errors.newPassword ? (
             <span className="text-red-700">{errors.newPassword}</span>
           ) : (
@@ -105,7 +105,7 @@ export function AccountPage() {
       <PageHeader title="Account" />
       <div className="grid max-w-4xl gap-6 lg:grid-cols-2">
         <section className={cardClass}>
-          <h2 className="font-sans text-lg font-medium text-slate-900">Signed in as</h2>
+          <h2 className="font-sans text-lg font-medium text-stone-900">Signed in as</h2>
           <dl className="mt-3 space-y-3">
             {[
               ['Name', user.name],
@@ -113,12 +113,12 @@ export function AccountPage() {
               ['Access', user.role === 'admin' ? 'Admin — can make changes' : 'Viewer — can look, not change'],
             ].map(([term, value]) => (
               <div key={term}>
-                <dt className="text-sm text-slate-500">{term}</dt>
-                <dd className="break-all text-slate-900">{value}</dd>
+                <dt className="text-sm text-stone-500">{term}</dt>
+                <dd className="break-all text-stone-900">{value}</dd>
               </div>
             ))}
           </dl>
-          <p className="mt-4 text-sm text-slate-500">
+          <p className="mt-4 text-sm text-stone-500">
             You are signed out automatically after a period of inactivity.
           </p>
         </section>

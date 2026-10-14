@@ -15,7 +15,7 @@ const emptyForm: EnquiryData = {
 const fieldOrder = Object.keys(emptyForm) as (keyof EnquiryData)[]
 
 const controlClass =
-  'mt-2 block w-full border border-ink/35 bg-white/60 px-4 py-3 text-base text-ink placeholder:text-muted/70 focus:border-teal aria-invalid:border-maroon'
+  'mt-2 block w-full rounded-md border border-ink/25 bg-white px-4 py-3 text-base text-ink transition-colors placeholder:text-muted/70 hover:border-ink/40 focus:border-maroon aria-invalid:border-terracotta aria-invalid:bg-terracotta/5'
 
 type Status = 'idle' | 'submitting' | 'success' | 'error'
 
@@ -77,7 +77,7 @@ export function ContactForm() {
 
   if (status === 'success') {
     return (
-      <div role="status" className="border border-line bg-cream p-8 md:p-10">
+      <div role="status" className="rounded-lg border border-gold/40 bg-cream p-8 md:p-10">
         <p className="font-display text-3xl md:text-4xl">
           Thank you. Your enquiry has been received.
         </p>

@@ -50,7 +50,7 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
                   end
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `block py-2 font-display text-4xl ${isActive ? 'text-teal italic' : ''}`
+                    `block py-2 font-display text-4xl ${isActive ? 'text-maroon italic' : 'transition-colors hover:text-maroon'}`
                   }
                 >
                   {label}

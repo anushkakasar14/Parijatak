@@ -7,10 +7,17 @@
   --color-ink: #23302f;
   --color-muted: #5a6462;
 
-  /* Accents drawn from the Parijatak logo — use sparingly */
+  /* Primary accent: deep maroon, for buttons, links and focus */
+  --color-maroon: #7a2e3a;
+  --color-maroon-deep: #5c2230;
+
+  /* Supporting accents — thin rules, small details */
+  --color-gold: #a8864a;
+  --color-terracotta: #b4614a;
+
+  /* Colours from the Parijatak logo — small touches only */
   --color-teal: #1f5a66;
   --color-teal-deep: #174650;
-  --color-maroon: #7a2e3a;
   --color-leaf: #8fa63a;
   --color-mustard: #d9a531;
   --color-coral: #d9795f;
@@ -47,7 +54,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-teal);
+    outline: 2px solid var(--color-maroon);
     outline-offset: 3px;
   }
 
@@ -100,8 +107,9 @@
     justify-content: center;
     gap: 0.625rem;
     min-height: 3rem;
-    padding: 0.75rem 1.75rem;
+    padding: 0.75rem 1.9rem;
     border: 1px solid transparent;
+    border-radius: 9999px;
     font-size: 0.8125rem;
     font-weight: 500;
     letter-spacing: 0.14em;
@@ -113,27 +121,27 @@
   }
 
   .btn-primary {
-    background-color: var(--color-teal);
+    background-color: var(--color-maroon);
     color: var(--color-ivory);
 
     &:hover {
-      background-color: var(--color-teal-deep);
+      background-color: var(--color-maroon-deep);
     }
   }
 
   .btn-outline {
-    border-color: var(--color-ink);
-    color: var(--color-ink);
+    border-color: var(--color-maroon);
+    color: var(--color-maroon);
 
     &:hover {
-      background-color: var(--color-ink);
+      background-color: var(--color-maroon);
       color: var(--color-ivory);
     }
   }
 
   .btn-light {
     background-color: var(--color-ivory);
-    color: var(--color-teal-deep);
+    color: var(--color-maroon-deep);
 
     &:hover {
       background-color: var(--color-cream);
@@ -154,7 +162,7 @@
     transition: color 0.2s;
 
     &:hover {
-      color: var(--color-teal);
+      color: var(--color-maroon);
     }
   }
 }
