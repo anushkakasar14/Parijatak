@@ -91,7 +91,9 @@ async function callScript(payload: Record<string, unknown>): Promise<ScriptReply
     throw new Error(
       response.status === 404
         ? 'The Apps Script web app was not found. Check the deployment address.'
-        : 'The Apps Script web app did not answer as expected. Check it is deployed with "Who has access: Anyone".',
+        : /function not found/i.test(text)
+          ? 'The deployed Apps Script has no doPost function. Paste the script, save, and deploy a new version.'
+          : 'The Apps Script web app did not answer as expected. Check it is deployed with "Who has access: Anyone".',
     )
   }
   if (!reply.ok) {

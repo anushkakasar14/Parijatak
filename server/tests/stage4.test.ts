@@ -28,7 +28,7 @@ const { enquiryService } = await import('../services/enquiryService.ts')
 const sheet = {
   rows: [] as string[][],
   expectedToken: TOKEN,
-  behaviour: 'ok' as 'ok' | 'html' | 'down' | 'not-found',
+  behaviour: 'ok' as 'ok' | 'html' | 'no-doPost' | 'down' | 'not-found',
   requests: [] as any[],
 }
 const realFetch = globalThis.fetch
@@ -40,6 +40,8 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
   sheet.requests.push(request)
   if (sheet.behaviour === 'down') throw new TypeError('fetch failed')
   if (sheet.behaviour === 'html') return new Response('<!doctype html><title>Sign in</title>', { status: 200 })
+  if (sheet.behaviour === 'no-doPost')
+    return new Response('<html><title>Error</title><div>Script function not found: doPost</div></html>', { status: 200 })
   if (sheet.behaviour === 'not-found') return new Response('<html>Not Found</html>', { status: 404 })
 
   const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } })
@@ -286,6 +288,11 @@ describe('Google Sheets through Apps Script', () => {
     const notPublic = await call('/admin/integrations/google-sheets', { as: admin })
     assert.equal(notPublic.body.data.ok, false)
     assert.match(notPublic.body.data.message, /Who has access: Anyone/)
+
+    sheet.behaviour = 'no-doPost'
+    const noDoPost = await call('/admin/integrations/google-sheets', { as: admin })
+    assert.equal(noDoPost.body.data.ok, false)
+    assert.match(noDoPost.body.data.message, /deploy a new version/)
 
     sheet.behaviour = 'down'
     const down = await call('/admin/integrations/google-sheets', { as: admin })
