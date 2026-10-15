@@ -10,7 +10,7 @@
     "server": "node --watch server/index.ts",
     "start": "node server/index.ts",
     "typecheck:server": "tsc -p server",
-    "test": "node --test server/tests/*.test.ts",
+    "test": "node --test --test-concurrency=1 server/tests/*.test.ts",
     "admin": "node server/scripts/admin.ts"
   },
   "dependencies": {

@@ -20,6 +20,13 @@ function OfferBanner({ offer }: { offer: Offer }) {
   return (
     <aside aria-label="Current offer" className="border-b border-gold/40 bg-cream text-ink">
       <div className="container-page flex flex-wrap items-center justify-center gap-x-5 gap-y-2 py-3 text-center text-sm">
+        {offer.bannerImageUrl && (
+          <img
+            src={offer.bannerImageUrl}
+            alt={offer.bannerImageAlt ?? ''}
+            className="h-12 w-12 shrink-0 rounded-full border border-gold/40 object-cover"
+          />
+        )}
         <p>
           <strong className="font-medium">{offer.title}</strong>
           {offer.discountText && <span> — {offer.discountText}</span>}

@@ -3,7 +3,8 @@ import type { FormEvent } from 'react'
 import { ApiError, adminFetch } from '../api'
 import { useAuth } from '../AuthContext'
 import { ErrorNotice, LoadingBlock, Notice, PageHeader } from '../components'
-import { MEDIA_LIST_ID, MediaLibraryList, MediaPreview, TextArea, TextInput, mediaHint, useFormState } from '../forms'
+import { MEDIA_LIST_ID, MediaLibraryList, TextArea, TextInput, useFormState, videoHint } from '../forms'
+import { MediaPicker } from '../media'
 import { useApi } from '../hooks'
 import type { PageSection, SiteSettings } from '../types'
 import { cardClass, primaryButtonClass, secondaryButtonClass } from '../ui'
@@ -90,12 +91,17 @@ function SectionEditor({ section, canEdit }: { section: PageSection; canEdit: bo
       />
 
       {hasImage && (
-        <div className="grid items-start gap-4 sm:grid-cols-[auto_1fr]">
-          <MediaPreview url={values.imageUrl} />
-          <div className="space-y-4">
-            <TextInput id={id('image')} label="Picture" value={values.imageUrl} onChange={set('imageUrl')} list={MEDIA_LIST_ID} hint={mediaHint} error={errors.imageUrl} disabled={!canEdit} />
-            <TextInput id={id('image-alt')} label="Description of the picture" value={values.imageAlt} onChange={set('imageAlt')} error={errors.imageAlt} disabled={!canEdit} />
-          </div>
+        <div className="space-y-4">
+          <MediaPicker
+            id={id('image')}
+            label="Picture"
+            value={values.imageUrl}
+            onChange={set('imageUrl')}
+            onAltSuggested={(alt) => !values.imageAlt && set('imageAlt')(alt)}
+            error={errors.imageUrl}
+            disabled={!canEdit}
+          />
+          <TextInput id={id('image-alt')} label="Description of the picture" value={values.imageAlt} onChange={set('imageAlt')} error={errors.imageAlt} disabled={!canEdit} />
         </div>
       )}
 
@@ -141,7 +147,7 @@ function GalleryForm({ initial, canEdit }: { initial: SiteSettings['gallery']['i
   const [saving, setSaving] = useState(false)
 
   const update = (index: number, field: 'imageUrl' | 'videoUrl' | 'alt', value: string) =>
-    setItems(items.map((item, i) => (i === index ? { ...item, [field]: value } : item)))
+    setItems((current) => current.map((item, i) => (i === index ? { ...item, [field]: value } : item)))
 
   const save = async (e: FormEvent) => {
     e.preventDefault()
@@ -167,11 +173,19 @@ function GalleryForm({ initial, canEdit }: { initial: SiteSettings['gallery']['i
 
       <ol className="space-y-4">
         {items.map((item, i) => (
-          <li key={i} className="grid items-start gap-4 rounded-md border border-stone-200 p-4 sm:grid-cols-[auto_1fr]">
-            <MediaPreview url={item.imageUrl} />
+          <li key={i} className="rounded-md border border-stone-200 p-4">
             <div className="space-y-3">
-              <TextInput id={`gallery-${i}-image`} label={`Picture ${i + 1}`} value={item.imageUrl} onChange={(v) => update(i, 'imageUrl', v)} list={MEDIA_LIST_ID} error={errors[`items.${i}.imageUrl`]} disabled={!canEdit} />
-              <TextInput id={`gallery-${i}-video`} label="Video (optional)" value={item.videoUrl} onChange={(v) => update(i, 'videoUrl', v)} list={MEDIA_LIST_ID} error={errors[`items.${i}.videoUrl`]} disabled={!canEdit} />
+              <MediaPicker
+                id={`gallery-${i}-image`}
+                label={`Picture ${i + 1}`}
+                value={item.imageUrl}
+                onChange={(v) => update(i, 'imageUrl', v)}
+                onAltSuggested={(alt) => !item.alt && update(i, 'alt', alt)}
+                error={errors[`items.${i}.imageUrl`]}
+                required
+                disabled={!canEdit}
+              />
+              <TextInput id={`gallery-${i}-video`} label="Video (optional)" value={item.videoUrl} onChange={(v) => update(i, 'videoUrl', v)} list={MEDIA_LIST_ID} hint={videoHint} error={errors[`items.${i}.videoUrl`]} disabled={!canEdit} />
               <TextInput id={`gallery-${i}-alt`} label="Description" value={item.alt} onChange={(v) => update(i, 'alt', v)} error={errors[`items.${i}.alt`]} disabled={!canEdit} />
               {canEdit && (
                 <button type="button" onClick={() => setItems(items.filter((_, j) => j !== i))} className={`${secondaryButtonClass} text-red-700`}>

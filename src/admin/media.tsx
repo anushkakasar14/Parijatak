@@ -236,6 +236,7 @@ export function MediaPicker({
   hint,
   error,
   required,
+  disabled,
   extraActions,
 }: {
   id: string
@@ -247,6 +248,8 @@ export function MediaPicker({
   hint?: ReactNode
   error?: string
   required?: boolean
+  /** View only: shows the picture and address without the buttons. */
+  disabled?: boolean
   extraActions?: ReactNode
 }) {
   const [choosing, setChoosing] = useState(false)
@@ -274,7 +277,7 @@ export function MediaPicker({
           )}
         </div>
         <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex flex-wrap gap-2">
+          <div className={disabled ? 'hidden' : 'flex flex-wrap gap-2'}>
             <UploadButton onUploaded={choose} label={value ? 'Upload a replacement' : 'Upload image'} />
             <button type="button" onClick={() => setChoosing(true)} className={secondaryButtonClass}>
               Choose from library
@@ -292,6 +295,7 @@ export function MediaPicker({
             onChange={(e) => onChange(e.target.value)}
             list={MEDIA_LIST_ID}
             required={required}
+            disabled={disabled}
             aria-invalid={error ? true : undefined}
             aria-describedby={`${id}-help`}
             placeholder="/media/… or https://…"

@@ -223,8 +223,9 @@ export function MediaLibraryList() {
   )
 }
 
-export const mediaHint =
-  'A file already on the website, such as /media/story-loom.jpg (start typing to see them), or a full https:// address. Uploading new files is not available yet.'
+/** Videos cannot be uploaded through the admin (they are too large for it), so they are typed. */
+export const videoHint =
+  'A video already on the website, such as /media/story-yarn.mp4 (start typing to see them), or a full https:// address. New videos are added to the website by a developer.'
 
 /** Shows a small preview of an image or video path, or says plainly that it cannot be found. */
 export function MediaPreview({ url, video = false }: { url: string; video?: boolean }) {

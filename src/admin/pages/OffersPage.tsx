@@ -3,16 +3,8 @@ import type { FormEvent } from 'react'
 import { ApiError, adminFetch } from '../api'
 import { useAuth } from '../AuthContext'
 import { ConfirmDialog, Dialog, EmptyState, ErrorNotice, LoadingBlock, Notice, PageHeader, Pill } from '../components'
-import {
-  MEDIA_LIST_ID,
-  MediaLibraryList,
-  MediaPreview,
-  SelectInput,
-  TextArea,
-  TextInput,
-  mediaHint,
-  useFormState,
-} from '../forms'
+import { MediaLibraryList, SelectInput, TextArea, TextInput, useFormState } from '../forms'
+import { MediaPicker } from '../media'
 import { useApi } from '../hooks'
 import { statusOptions } from '../types'
 import type { Offer, PublicationStatus } from '../types'
@@ -124,8 +116,15 @@ function OfferEditor({ offer, onClose, onSaved }: { offer: Offer | null; onClose
         <details className="rounded-md border border-stone-200 p-4">
           <summary className="cursor-pointer text-sm font-medium text-stone-700">Banner picture (optional)</summary>
           <div className="mt-4 space-y-4">
-            <TextInput id="offer-image" label="Picture" value={values.bannerImageUrl} onChange={set('bannerImageUrl')} list={MEDIA_LIST_ID} hint={mediaHint} error={errors.bannerImageUrl} />
-            <MediaPreview url={values.bannerImageUrl} />
+            <MediaPicker
+              id="offer-image"
+              label="Picture"
+              value={values.bannerImageUrl}
+              onChange={set('bannerImageUrl')}
+              onAltSuggested={(alt) => !values.bannerImageAlt && set('bannerImageAlt')(alt)}
+              error={errors.bannerImageUrl}
+              hint="Shown as a small round picture at the start of the band. A square image works best."
+            />
             <TextInput id="offer-image-alt" label="Description of the picture" value={values.bannerImageAlt} onChange={set('bannerImageAlt')} error={errors.bannerImageAlt} />
           </div>
         </details>

@@ -10,9 +10,10 @@ import {
   MediaPreview,
   SelectInput,
   TextInput,
-  mediaHint,
   useFormState,
+  videoHint,
 } from '../forms'
+import { MediaPicker } from '../media'
 import { useApi } from '../hooks'
 import { statusOptions } from '../types'
 import type { PublicationStatus, Slide } from '../types'
@@ -115,29 +116,37 @@ function SlideEditor({
           />
         </div>
 
-        <TextInput
-          id="slide-media"
-          label={values.mediaType === 'video' ? 'Video file' : 'Picture'}
-          value={values.mediaUrl}
-          onChange={set('mediaUrl')}
-          list={MEDIA_LIST_ID}
-          hint={mediaHint}
-          error={errors.mediaUrl}
-          required
-        />
-        <MediaPreview url={values.mediaUrl} video={values.mediaType === 'video'} />
-
-        {values.mediaType === 'video' && (
+        {values.mediaType === 'image' ? (
+          <MediaPicker
+            id="slide-media"
+            label="Picture"
+            value={values.mediaUrl}
+            onChange={set('mediaUrl')}
+            onAltSuggested={(alt) => !values.altText && set('altText')(alt)}
+            error={errors.mediaUrl}
+            hint="A wide picture works best (about 16:9). JPEG, PNG or WebP, up to 4 MB."
+            required
+          />
+        ) : (
           <>
             <TextInput
+              id="slide-media"
+              label="Video file"
+              value={values.mediaUrl}
+              onChange={set('mediaUrl')}
+              list={MEDIA_LIST_ID}
+              hint={videoHint}
+              error={errors.mediaUrl}
+              required
+            />
+            <MediaPreview url={values.mediaUrl} video />
+            <MediaPicker
               id="slide-poster"
               label="Still picture shown before the video plays"
               value={values.posterUrl}
               onChange={set('posterUrl')}
-              list={MEDIA_LIST_ID}
               error={errors.posterUrl}
             />
-            <MediaPreview url={values.posterUrl} />
           </>
         )}
 
