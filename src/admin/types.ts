@@ -32,6 +32,7 @@ export interface Paginated<T> {
 }
 
 export interface Overview {
+  range: { from: string | null; to: string | null }
   enquiries: {
     total: number
     byStatus: Record<EnquiryStatus, number>
@@ -39,17 +40,134 @@ export interface Overview {
     productEnquiries: number
     unsynced: number
   }
-  products: { total: number; active: number }
+  products: { total: number; active: number; published: number; draft: number; archived: number }
+  offers: { active: number; scheduled: number }
   googleSheets: { configured: boolean; pending: number }
   recentEnquiries: Enquiry[]
+  recentProducts: {
+    id: string
+    name: string
+    status: PublicationStatus
+    imageUrl: string
+    updatedAt: string
+    category: string
+  }[]
+}
+
+export interface ProductImage {
+  url: string
+  alt: string
 }
 
 export interface AdminProduct {
   id: string
   name: string
+  slug: string
   category: string
+  categoryId: string | null
+  shortDescription: string | null
   description: string
+  material: string | null
+  craftsmanship: string | null
+  dimensions: string | null
+  variants: string[]
+  price: number | null
+  offerPrice: number | null
   imageUrl: string
-  isFeatured: boolean
+  imageAlt: string | null
+  images: ProductImage[]
   customizationAvailable: boolean
+  isFeatured: boolean
+  displayOrder: number
+  status: PublicationStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Category {
+  id: string
+  name: string
+  description: string | null
+  isActive: boolean
+  displayOrder: number
+  productCount: number
+  publishedCount: number
+}
+
+export interface MediaAsset {
+  id: string
+  url: string
+  filename: string
+  contentType: string
+  byteSize: number
+  width: number | null
+  height: number | null
+  altText: string
+  createdAt: string
+}
+
+export type PublicationStatus = 'draft' | 'published' | 'archived'
+
+export const statusOptions: { value: PublicationStatus; label: string }[] = [
+  { value: 'published', label: 'Published — shown on the website' },
+  { value: 'draft', label: 'Draft — hidden' },
+  { value: 'archived', label: 'Archived — hidden' },
+]
+
+export interface Slide {
+  id: string
+  mediaType: 'image' | 'video'
+  mediaUrl: string
+  posterUrl: string | null
+  altText: string
+  eyebrow: string | null
+  heading: string
+  description: string | null
+  ctaLabel: string | null
+  ctaUrl: string | null
+  displayOrder: number
+  isActive: boolean
+  status: PublicationStatus
+}
+
+export interface Offer {
+  id: string
+  title: string
+  description: string | null
+  discountText: string | null
+  bannerImageUrl: string | null
+  bannerImageAlt: string | null
+  ctaLabel: string | null
+  ctaUrl: string | null
+  startsAt: string | null
+  endsAt: string | null
+  status: PublicationStatus
+}
+
+export interface PageSection {
+  id: string
+  page: string
+  label: string
+  eyebrow: string | null
+  heading: string
+  body: string
+  imageUrl: string | null
+  imageAlt: string | null
+  ctaLabel: string | null
+  ctaUrl: string | null
+  displayOrder: number
+}
+
+export interface SiteSettings {
+  brand: { name: string; tagline: string }
+  contact: {
+    email: string
+    phone: string
+    whatsappNumber: string
+    addressName: string
+    addressLines: string[]
+  }
+  social: { instagram: string; youtube: string; facebook: string }
+  footer: { note: string }
+  gallery: { items: { imageUrl: string; videoUrl: string; alt: string }[] }
 }

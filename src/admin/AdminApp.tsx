@@ -9,7 +9,12 @@ import { AccountPage } from './pages/AccountPage'
 import { EnquiriesPage } from './pages/EnquiriesPage'
 import { OverviewPage } from './pages/OverviewPage'
 import { ProductsPage } from './pages/ProductsPage'
-import { UpcomingPage } from './pages/UpcomingPage'
+import { CategoriesPage } from './pages/CategoriesPage'
+import { MediaPage } from './pages/MediaPage'
+import { CarouselPage } from './pages/CarouselPage'
+import { ContactSocialPage } from './pages/ContactSocialPage'
+import { ContentPage } from './pages/ContentPage'
+import { OffersPage } from './pages/OffersPage'
 
 /**
  * Redirects to the login page unless signed in. This only decides what to SHOW —
@@ -80,57 +85,12 @@ export default function AdminApp() {
             <Route index element={<OverviewPage />} />
             <Route path="enquiries" element={<EnquiriesPage />} />
             <Route path="products" element={<ProductsPage />} />
-            <Route
-              path="carousel"
-              element={
-                <UpcomingPage
-                  title="Homepage carousel"
-                  features={[
-                    'Add, replace and remove carousel images and videos',
-                    'Edit each slide’s heading, description and button',
-                    'Change the order of the slides',
-                  ]}
-                />
-              }
-            />
-            <Route
-              path="offers"
-              element={
-                <UpcomingPage
-                  title="Offers & banners"
-                  features={[
-                    'Create an offer or announcement banner',
-                    'Set the dates it starts and ends, so it disappears on its own',
-                    'Switch a banner on or off at any time',
-                  ]}
-                />
-              }
-            />
-            <Route
-              path="content"
-              element={
-                <UpcomingPage
-                  title="Homepage & About"
-                  features={[
-                    'Edit the headings and paragraphs on the homepage',
-                    'Edit the About page, including the founder’s note',
-                    'Replace the images used in those sections',
-                  ]}
-                />
-              }
-            />
-            <Route
-              path="contact-details"
-              element={
-                <UpcomingPage
-                  title="Contact & social"
-                  features={[
-                    'Update the studio address and WhatsApp number',
-                    'Update the Instagram, YouTube and Facebook links',
-                  ]}
-                />
-              }
-            />
+            <Route path="categories" element={<CategoriesPage />} />
+            <Route path="media" element={<MediaPage />} />
+            <Route path="carousel" element={<CarouselPage />} />
+            <Route path="offers" element={<OffersPage />} />
+            <Route path="content" element={<ContentPage />} />
+            <Route path="contact-details" element={<ContactSocialPage />} />
             <Route path="account" element={<AccountPage />} />
             <Route path="*" element={<AdminNotFound />} />
           </Route>

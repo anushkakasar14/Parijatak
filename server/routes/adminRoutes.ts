@@ -1,6 +1,7 @@
-import { Router } from 'express'
+import express, { Router } from 'express'
 import { adminContentController as content } from '../controllers/adminContentController.ts'
 import { adminController } from '../controllers/adminController.ts'
+import { MAX_UPLOAD_BYTES, mediaController } from '../controllers/mediaController.ts'
 import { adminLimiter } from '../middleware/rateLimit.ts'
 import { requireAdmin, requireRole } from '../middleware/requireAdmin.ts'
 
@@ -20,6 +21,7 @@ adminRoutes.get('/products', content.listProducts)
 adminRoutes.post('/products', write, content.createProduct)
 adminRoutes.get('/products/:id', content.getProduct)
 adminRoutes.patch('/products/:id', write, content.updateProduct)
+adminRoutes.post('/products/:id/duplicate', write, content.duplicateProduct)
 adminRoutes.delete('/products/:id', write, content.deleteProduct)
 
 adminRoutes.get('/categories', content.listCategories)
@@ -42,3 +44,14 @@ adminRoutes.get('/offers', content.listOffers)
 adminRoutes.post('/offers', write, content.createOffer)
 adminRoutes.patch('/offers/:id', write, content.updateOffer)
 adminRoutes.delete('/offers/:id', write, content.deleteOffer)
+
+// Media library. Uploads arrive as the raw file; the server checks what it really is.
+adminRoutes.get('/media', mediaController.list)
+adminRoutes.post(
+  '/media',
+  write,
+  express.raw({ type: () => true, limit: MAX_UPLOAD_BYTES }),
+  mediaController.upload,
+)
+adminRoutes.patch('/media/:id', write, mediaController.update)
+adminRoutes.delete('/media/:id', write, mediaController.remove)

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { ApiError, adminFetch } from '../api'
 import { useAuth } from '../AuthContext'
 import {
@@ -10,13 +10,32 @@ import {
   Notice,
   PageHeader,
   Pill,
+  PublicationBadge,
   StatusBadge,
   formatDate,
 } from '../components'
 import { useApi } from '../hooks'
 import { enquiryStatuses } from '../types'
 import type { Overview } from '../types'
-import { cardClass, primaryButtonClass } from '../ui'
+import { cardClass, fieldClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../ui'
+
+/** A date in India as YYYY-MM-DD, `offsetDays` from today. */
+const indiaDate = (offsetDays = 0) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(Date.now() + offsetDays * 86_400_000))
+
+const presets = [
+  { label: 'All time', from: () => '', to: () => '' },
+  { label: 'Last 7 days', from: () => indiaDate(-6), to: () => indiaDate() },
+  { label: 'Last 30 days', from: () => indiaDate(-29), to: () => indiaDate() },
+  { label: 'This month', from: () => `${indiaDate().slice(0, 8)}01`, to: () => indiaDate() },
+]
+
+const quickActions = [
+  { label: 'Add a product', to: '/admin/products', note: 'Products' },
+  { label: 'Upload images', to: '/admin/media', note: 'Media library' },
+  { label: 'Change the carousel', to: '/admin/carousel', note: 'Homepage' },
+  { label: 'Add an offer', to: '/admin/offers', note: 'Offers & banners' },
+]
 
 function SheetsCard({ sheets, onSynced }: { sheets: Overview['googleSheets']; onSynced: () => void }) {
   const { user } = useAuth()
@@ -113,18 +132,83 @@ function SheetsCard({ sheets, onSynced }: { sheets: Overview['googleSheets']; on
 
 export function OverviewPage() {
   const { user } = useAuth()
-  const { data, error, loading, reload } = useApi<Overview>('/admin/overview')
+  const [params, setParams] = useSearchParams()
+  const from = params.get('from') ?? ''
+  const to = params.get('to') ?? ''
+  const setRange = (nextFrom: string, nextTo: string) => {
+    const next = new URLSearchParams()
+    if (nextFrom) next.set('from', nextFrom)
+    if (nextTo) next.set('to', nextTo)
+    setParams(next, { replace: true })
+  }
+  const query = new URLSearchParams({ ...(from && { from }), ...(to && { to }) }).toString()
+  const { data, error, loading, reload } = useApi<Overview>(`/admin/overview${query ? `?${query}` : ''}`)
+
+  const rangePicker = (
+    <fieldset className={`${cardClass} mb-6 p-4`}>
+      <legend className="sr-only">Enquiry dates</legend>
+      <div className="flex flex-wrap items-end gap-4">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Quick date ranges">
+          {presets.map((preset) => {
+            const active = preset.from() === from && preset.to() === to
+            return (
+              <button
+                key={preset.label}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setRange(preset.from(), preset.to())}
+                className={active ? primaryButtonClass : secondaryButtonClass}
+              >
+                {preset.label}
+              </button>
+            )
+          })}
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label htmlFor="range-from" className={labelClass}>
+              From
+            </label>
+            <input
+              id="range-from"
+              type="date"
+              value={from}
+              max={to || undefined}
+              onChange={(e) => setRange(e.target.value, to)}
+              className={`${fieldClass} py-2`}
+            />
+          </div>
+          <div>
+            <label htmlFor="range-to" className={labelClass}>
+              To
+            </label>
+            <input
+              id="range-to"
+              type="date"
+              value={to}
+              min={from || undefined}
+              onChange={(e) => setRange(from, e.target.value)}
+              className={`${fieldClass} py-2`}
+            />
+          </div>
+        </div>
+      </div>
+      <p className="mt-2 text-sm text-stone-500">The dates apply to the enquiry figures. Days follow India time.</p>
+    </fieldset>
+  )
 
   if (!data) {
     return (
       <>
         <PageHeader title="Overview" />
+        {rangePicker}
         {error ? <ErrorNotice message={error} onRetry={reload} /> : <LoadingBlock />}
       </>
     )
   }
 
-  const { enquiries, products, googleSheets, recentEnquiries } = data
+  const { enquiries, products, offers, googleSheets, recentEnquiries, recentProducts } = data
+  const ranged = Boolean(from || to)
 
   return (
     <div aria-busy={loading}>
@@ -132,6 +216,7 @@ export function OverviewPage() {
         title={`Welcome, ${user?.name ?? ''}`}
         description="A summary of customer enquiries and the website."
       />
+      {rangePicker}
       {error && (
         <div className="mb-6">
           <ErrorNotice message={error} onRetry={reload} />
@@ -159,7 +244,7 @@ export function OverviewPage() {
 
       <dl className="mt-4 grid gap-4 sm:grid-cols-3">
         {[
-          ['Last 7 days', enquiries.last7Days],
+          ranged ? ['Enquiries in these dates', enquiries.total] : ['Last 7 days', enquiries.last7Days],
           ['About a product', enquiries.productEnquiries],
           ['Products on the website', products.active],
         ].map(([label, value]) => (
@@ -170,11 +255,45 @@ export function OverviewPage() {
         ))}
       </dl>
 
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {(
+          [
+            ['Published products', products.published, '/admin/products?status=published'],
+            ['Draft products', products.draft, '/admin/products?status=draft'],
+            ['Offers running now', offers.active, '/admin/offers'],
+            ['Offers starting later', offers.scheduled, '/admin/offers'],
+          ] as const
+        ).map(([label, value, link]) => (
+          <Link key={label} to={link} className={`${cardClass} block transition-colors hover:border-maroon`}>
+            <p className="text-sm text-stone-500">{label}</p>
+            <p className="mt-1 text-2xl font-medium text-stone-900 tabular-nums">{value}</p>
+          </Link>
+        ))}
+      </div>
+
+      {user?.role === 'admin' && (
+        <section className="mt-6" aria-labelledby="quick-heading">
+          <h2 id="quick-heading" className="font-sans text-lg font-medium text-stone-900">
+            Quick actions
+          </h2>
+          <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {quickActions.map((action) => (
+              <li key={action.label}>
+                <Link to={action.to} className={`${cardClass} block p-4 transition-colors hover:border-maroon`}>
+                  <span className="block font-medium text-maroon">{action.label} →</span>
+                  <span className="block text-sm text-stone-500">{action.note}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
         <section className={cardClass} aria-labelledby="recent-heading">
           <div className="flex items-center justify-between gap-3">
             <h2 id="recent-heading" className="font-sans text-lg font-medium text-stone-900">
-              Latest enquiries
+              {ranged ? 'Latest enquiries in these dates' : 'Latest enquiries'}
             </h2>
             <Link to="/admin/enquiries" className="text-sm font-medium text-maroon hover:underline">
               View all
@@ -206,6 +325,37 @@ export function OverviewPage() {
 
         <SheetsCard sheets={googleSheets} onSynced={reload} />
       </div>
+
+      <section className={`${cardClass} mt-6`} aria-labelledby="products-heading">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="products-heading" className="font-sans text-lg font-medium text-stone-900">
+            Recently changed products
+          </h2>
+          <Link to="/admin/products?sort=updated" className="text-sm font-medium text-maroon hover:underline">
+            View all
+          </Link>
+        </div>
+        {recentProducts.length === 0 ? (
+          <div className="mt-4">
+            <EmptyState title="No products yet" />
+          </div>
+        ) : (
+          <ul className="mt-3 divide-y divide-stone-100">
+            {recentProducts.map((product) => (
+              <li key={product.id} className="flex items-center gap-3 py-3">
+                <img src={product.imageUrl} alt="" className="h-12 w-12 shrink-0 rounded bg-stone-100 object-cover" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-stone-900">{product.name}</p>
+                  <p className="truncate text-sm text-stone-500">
+                    {product.category} · {formatDate(product.updatedAt)}
+                  </p>
+                </div>
+                <PublicationBadge status={product.status} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   )
 }

@@ -215,4 +215,38 @@ export const migrations: Migration[] = [
     // Starting content, written once. Later edits and deletions are never overwritten.
     seed: seedContent,
   },
+  {
+    version: 4,
+    name: 'categories_and_media',
+    // Additive: two category columns, a media table, and a relaxed foreign key so a
+    // category's web address (its id) can be changed without breaking its products.
+    statements: [
+      `ALTER TABLE categories ADD COLUMN description TEXT`,
+      `ALTER TABLE categories ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT TRUE`,
+      // Same rule as before (a category in use cannot be deleted), plus: renaming a
+      // category's id carries its products along.
+      `ALTER TABLE products DROP CONSTRAINT IF EXISTS products_category_id_fkey`,
+      `ALTER TABLE products ADD CONSTRAINT products_category_id_fkey
+         FOREIGN KEY (category_id) REFERENCES categories(id) ON UPDATE CASCADE ON DELETE RESTRICT`,
+      `CREATE INDEX products_updated_idx ON products (updated_at DESC)`,
+
+      // Uploaded images. The file itself lives in object storage under storage_key;
+      // url is the public address pages use.
+      `CREATE TABLE media_assets (
+        id           UUID PRIMARY KEY,
+        storage_key  TEXT NOT NULL UNIQUE,
+        url          TEXT NOT NULL UNIQUE,
+        filename     TEXT NOT NULL,
+        content_type TEXT NOT NULL,
+        byte_size    INTEGER NOT NULL,
+        width        INTEGER,
+        height       INTEGER,
+        alt_text     TEXT NOT NULL DEFAULT '',
+        uploaded_by  UUID REFERENCES admin_users(id) ON DELETE SET NULL,
+        created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX media_assets_created_idx ON media_assets (created_at DESC)`,
+    ],
+  },
 ]

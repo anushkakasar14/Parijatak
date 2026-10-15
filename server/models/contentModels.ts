@@ -6,38 +6,66 @@ import type { PublicationStatus } from './productModel.ts'
 // ── Categories ──────────────────────────────────────────────────────────────────
 
 export interface Category {
+  /** Also the category's web address, e.g. "bed-linens" in /collection?category=bed-linens. */
   id: string
   name: string
+  description: string | null
+  isActive: boolean
   displayOrder: number
-  /** Published products in the category (public) or all of them (admin). */
+  /** Products in the category: published only (public list) or all (admin list). */
   productCount: number
+  publishedCount: number
 }
 
 interface CategoryRow {
   id: string
   name: string
+  description: string | null
+  is_active: boolean
   display_order: number
   product_count: number
+  published_count: number
 }
 
 const toCategory = (row: CategoryRow): Category => ({
   id: row.id,
   name: row.name,
+  description: row.description,
+  isActive: row.is_active,
   displayOrder: row.display_order,
   productCount: row.product_count,
+  publishedCount: row.published_count,
 })
 
+export interface CategoryInput {
+  id: string
+  name: string
+  description: string | null
+  isActive: boolean
+  displayOrder: number
+}
+
+const categoryMessages = {
+  unique: 'Another category already uses this name or web address.',
+  foreignKey: 'This category still has products. Move or delete them first.',
+}
+
 export const categoryModel = {
-  /** `publishedOnly` counts only products visitors can see, and hides empty categories. */
+  /**
+   * `publishedOnly`: what visitors see — switched-on categories that have at least one
+   * published product. Otherwise every category, with counts, for administrators.
+   */
   async list(options: { publishedOnly: boolean }): Promise<Category[]> {
     const db = await getDb()
-    const filter = options.publishedOnly ? `AND p.status = 'published'` : ''
     const { rows } = await db.query<CategoryRow>(
-      `SELECT c.id, c.name, c.display_order, COUNT(p.id)::int AS product_count
+      `SELECT c.id, c.name, c.description, c.is_active, c.display_order,
+              COUNT(p.id)${options.publishedOnly ? " FILTER (WHERE p.status = 'published')" : ''}::int AS product_count,
+              COUNT(p.id) FILTER (WHERE p.status = 'published')::int AS published_count
          FROM categories c
-         LEFT JOIN products p ON p.category_id = c.id ${filter}
+         LEFT JOIN products p ON p.category_id = c.id
+        ${options.publishedOnly ? 'WHERE c.is_active' : ''}
         GROUP BY c.id
-        ${options.publishedOnly ? 'HAVING COUNT(p.id) > 0' : ''}
+        ${options.publishedOnly ? "HAVING COUNT(p.id) FILTER (WHERE p.status = 'published') > 0" : ''}
         ORDER BY c.display_order, c.name`,
     )
     return rows.map(toCategory)
@@ -49,37 +77,44 @@ export const categoryModel = {
     return rows.length > 0
   },
 
-  async create(input: { id: string; name: string; displayOrder: number }): Promise<void> {
+  async create(input: CategoryInput): Promise<void> {
     const db = await getDb()
     try {
-      await db.query('INSERT INTO categories (id, name, display_order) VALUES ($1, $2, $3)', [
-        input.id,
-        input.name,
-        input.displayOrder,
-      ])
+      await db.query(
+        'INSERT INTO categories (id, name, description, is_active, display_order) VALUES ($1, $2, $3, $4, $5)',
+        [input.id, input.name, input.description, input.isActive, input.displayOrder],
+      )
     } catch (err) {
-      translateConstraintError(err, { unique: 'A category with this name already exists.' })
+      translateConstraintError(err, categoryMessages)
     }
   },
 
-  async update(id: string, patch: { name?: string; displayOrder?: number }): Promise<boolean> {
-    const { assignments, params } = buildUpdate(patch, { name: 'name', displayOrder: 'display_order' })
+  /** A new `id` changes the web address; products follow automatically (ON UPDATE CASCADE). */
+  async update(id: string, patch: Partial<CategoryInput>): Promise<string | null> {
+    const { assignments, params } = buildUpdate(patch, {
+      id: 'id',
+      name: 'name',
+      description: 'description',
+      isActive: 'is_active',
+      displayOrder: 'display_order',
+    })
     const db = await getDb()
-    if (!assignments) return this.exists(id)
+    if (!assignments) return (await this.exists(id)) ? id : null
     try {
-      const { rows } = await db.query(
+      const { rows } = await db.query<{ id: string }>(
         `UPDATE categories SET ${assignments}, updated_at = now() WHERE id = $${params.length + 1} RETURNING id`,
         [...params, id],
       )
-      if (!rows.length) return false
-      // Keep the legacy text column on products in step with the new name.
+      if (!rows.length) return null
+      const newId = rows[0].id
+      // Keep the legacy text column on products in step with the name.
       await db.query(
         'UPDATE products SET category = (SELECT name FROM categories WHERE id = $1) WHERE category_id = $1',
-        [id],
+        [newId],
       )
-      return true
+      return newId
     } catch (err) {
-      translateConstraintError(err, { unique: 'A category with this name already exists.' })
+      translateConstraintError(err, categoryMessages)
     }
   },
 
@@ -89,9 +124,7 @@ export const categoryModel = {
       const { rows } = await db.query('DELETE FROM categories WHERE id = $1 RETURNING id', [id])
       return rows.length > 0
     } catch (err) {
-      translateConstraintError(err, {
-        foreignKey: 'This category still has products. Move or delete them first.',
-      })
+      translateConstraintError(err, categoryMessages)
     }
   },
 }
@@ -425,6 +458,18 @@ export const offerModel = {
         ORDER BY starts_at DESC NULLS LAST, created_at DESC`,
     )
     return rows.map(toOffer)
+  },
+
+  /** Published offers running now, and published ones waiting for their start date. */
+  async counts(): Promise<{ active: number; scheduled: number }> {
+    const db = await getDb()
+    const { rows } = await db.query<{ active: number; scheduled: number }>(
+      `SELECT
+         COUNT(*) FILTER (WHERE (starts_at IS NULL OR starts_at <= now()) AND (ends_at IS NULL OR ends_at > now()))::int AS active,
+         COUNT(*) FILTER (WHERE starts_at > now())::int AS scheduled
+         FROM offers WHERE status = 'published'`,
+    )
+    return rows[0]
   },
 
   async listAll(): Promise<Offer[]> {

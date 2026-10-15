@@ -79,3 +79,38 @@ export async function adminFetch<T>(path: string, options: RequestOptions = {}):
   onActivity?.()
   return (raw ? payload : (payload?.data ?? payload)) as T
 }
+
+/**
+ * Uploads one image file. Uses XMLHttpRequest rather than fetch because only it reports
+ * upload progress. The file is sent as-is; the server checks what it really is.
+ */
+export function uploadFile<T>(path: string, file: File, onProgress?: (fraction: number) => void): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `/api${path}`)
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+    xhr.setRequestHeader('X-Filename', encodeURIComponent(file.name))
+    if (csrfToken) xhr.setRequestHeader('X-CSRF-Token', csrfToken)
+
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total)
+    xhr.onerror = () => reject(new ApiError(0, 'Could not reach the server. Check your connection and try again.'))
+    xhr.onload = () => {
+      let payload: { message?: string; errors?: Record<string, string>; data?: T } | null = null
+      try {
+        payload = JSON.parse(xhr.responseText)
+      } catch {
+        // not JSON (for example a proxy error page)
+      }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        if (xhr.status === 401) onUnauthorized?.()
+        const fallback =
+          xhr.status === 413 ? 'This file is too large. Images can be up to 4 MB.' : 'The upload failed. Please try again.'
+        reject(new ApiError(xhr.status, payload?.message ?? fallback, payload?.errors))
+        return
+      }
+      onActivity?.()
+      resolve(payload?.data as T)
+    }
+    xhr.send(file)
+  })
+}

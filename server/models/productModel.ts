@@ -106,6 +106,14 @@ const SELECT = `
 
 const ORDER = 'ORDER BY p.display_order, p.created_at, p.name'
 
+/** Sort orders the admin list offers. Built from a fixed list — never from raw input. */
+function adminOrder(sort: 'order' | 'name' | 'created' | 'updated' = 'order', direction?: 'asc' | 'desc') {
+  const defaults = { order: 'ASC', name: 'ASC', created: 'DESC', updated: 'DESC' } as const
+  const dir = direction ? (direction === 'asc' ? 'ASC' : 'DESC') : defaults[sort]
+  const columns = { order: 'p.display_order', name: 'lower(p.name)', created: 'p.created_at', updated: 'p.updated_at' }
+  return `ORDER BY ${columns[sort]} ${dir}, p.name ASC`
+}
+
 export interface ProductInput {
   name: string
   slug: string
@@ -172,7 +180,7 @@ export const productModel = {
 
     const db = await getDb()
     const { rows } = await db.query<ProductRow>(
-      `${SELECT} WHERE ${where.join(' AND ')} ${ORDER}`,
+      `${SELECT} WHERE ${where.join(' AND ')} AND (c.id IS NULL OR c.is_active) ${ORDER}`,
       params,
     )
     return rows.map(toProduct)
@@ -181,20 +189,23 @@ export const productModel = {
   async findPublishedByIdOrSlug(idOrSlug: string): Promise<Product | null> {
     const db = await getDb()
     const { rows } = await db.query<ProductRow>(
-      `${SELECT} WHERE p.status = 'published' AND (p.id = $1 OR p.slug = $1)`,
+      `${SELECT} WHERE p.status = 'published' AND (c.id IS NULL OR c.is_active) AND (p.id = $1 OR p.slug = $1)`,
       [idOrSlug],
     )
     return rows[0] ? toProduct(rows[0]) : null
   },
 
-  async counts(): Promise<{ total: number; active: number }> {
+  async counts(): Promise<{ total: number; active: number; published: number; draft: number; archived: number }> {
     const db = await getDb()
-    const { rows } = await db.query<{ total: number; active: number }>(
+    const { rows } = await db.query<{ total: number; published: number; draft: number; archived: number }>(
       `SELECT COUNT(*)::int AS total,
-              COUNT(*) FILTER (WHERE status = 'published')::int AS active
+              COUNT(*) FILTER (WHERE status = 'published')::int AS published,
+              COUNT(*) FILTER (WHERE status = 'draft')::int AS draft,
+              COUNT(*) FILTER (WHERE status = 'archived')::int AS archived
          FROM products`,
     )
-    return rows[0]
+    // `active` is kept for older callers; it means published.
+    return { ...rows[0], active: rows[0].published }
   },
 
   // ── Admin: every status ─────────────────────────────────────────────────────────
@@ -203,6 +214,8 @@ export const productModel = {
     status?: PublicationStatus
     categoryId?: string
     search?: string
+    sort?: 'order' | 'name' | 'created' | 'updated'
+    direction?: 'asc' | 'desc'
     limit: number
     offset: number
   }): Promise<{ products: Product[]; total: number }> {
@@ -225,7 +238,7 @@ export const productModel = {
 
     const db = await getDb()
     const { rows } = await db.query<ProductRow>(
-      `${SELECT} ${condition} ${ORDER} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      `${SELECT} ${condition} ${adminOrder(filter.sort, filter.direction)} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, filter.limit, filter.offset],
     )
     const count = await db.query<{ total: number }>(
@@ -306,6 +319,36 @@ export const productModel = {
       translateConstraintError(err, constraintMessages)
     }
     return this.findById(id)
+  },
+
+  /** Copies a product as a hidden draft, with "(copy)" in its name and a free web address. */
+  async duplicate(id: string): Promise<Product | null> {
+    const original = await this.findById(id)
+    if (!original) return null
+    const db = await getDb()
+
+    const base = `${original.slug}-copy`.slice(0, 60)
+    const { rows: taken } = await db.query<{ slug: string }>(
+      'SELECT slug FROM products WHERE slug = $1 OR slug LIKE $2',
+      [base, `${base}-%`],
+    )
+    const used = new Set(taken.map((r) => r.slug))
+    let slug = base
+    for (let n = 2; used.has(slug); n++) slug = `${base}-${n}`
+
+    const newId = randomUUID()
+    await db.query(
+      `INSERT INTO products
+         (id, name, slug, category, category_id, short_description, description, material, craftsmanship,
+          dimensions, variants, price, offer_price, image_url, image_alt, additional_images,
+          customization_available, is_featured, display_order, status, is_active)
+       SELECT $1, left(name || ' (copy)', 120), $2, category, category_id, short_description, description,
+              material, craftsmanship, dimensions, variants, price, offer_price, image_url, image_alt,
+              additional_images, customization_available, FALSE, display_order, 'draft', FALSE
+         FROM products WHERE id = $3`,
+      [newId, slug, id],
+    )
+    return this.findById(newId)
   },
 
   /** Enquiries about the product keep their saved product name; only the link is cleared. */

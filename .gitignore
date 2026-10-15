@@ -17,3 +17,4 @@ Shoot parijatak/
 
 # Local Netlify folder
 .netlify
+*.tsbuildinfo

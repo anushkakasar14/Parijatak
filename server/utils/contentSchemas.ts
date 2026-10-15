@@ -128,6 +128,8 @@ export const updateProductSchema = z.strictObject(productFields).partial().super
 
 export const listAdminProductsSchema = z.object({
   status: status.optional(),
+  sort: z.enum(['order', 'name', 'created', 'updated']).default('order'),
+  direction: z.enum(['asc', 'desc']).optional(),
   categoryId: z
     .string()
     .regex(/^[a-z0-9-]{1,64}$/)
@@ -143,14 +145,22 @@ export const listAdminProductsSchema = z.object({
 
 // ── Categories ──────────────────────────────────────────────────────────────────
 
-export const createCategorySchema = z.strictObject({
+const categoryFields = {
   name: line(80, 'Name'),
+  slug,
+  description: optionalText(500),
+  isActive: z.boolean(),
+  displayOrder,
+}
+
+export const createCategorySchema = z.strictObject({
+  ...categoryFields,
+  slug: slug.optional(),
+  isActive: z.boolean().default(true),
   displayOrder: displayOrder.default(0),
 })
 
-export const updateCategorySchema = z
-  .strictObject({ name: line(80, 'Name'), displayOrder })
-  .partial()
+export const updateCategorySchema = z.strictObject(categoryFields).partial()
 
 // ── Homepage slides ─────────────────────────────────────────────────────────────
 

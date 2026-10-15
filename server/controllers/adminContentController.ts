@@ -105,6 +105,14 @@ export const adminContentController = {
     res.json({ success: true, data: product })
   },
 
+  /** Copies a product as a new draft with its own web address. */
+  async duplicateProduct(req: Request, res: Response) {
+    const { id } = idParam.parse(req.params)
+    const copy = await productModel.duplicate(id)
+    if (!copy) throw notFound('Product')
+    res.status(201).json({ success: true, data: copy })
+  },
+
   async deleteProduct(req: Request, res: Response) {
     const { id } = idParam.parse(req.params)
     if (!(await productModel.delete(id))) throw notFound('Product')
@@ -118,20 +126,25 @@ export const adminContentController = {
   },
 
   async createCategory(req: Request, res: Response) {
-    const input = createCategorySchema.parse(req.body)
-    const id = slugify(input.name)
+    const { slug, ...input } = createCategorySchema.parse(req.body)
+    const id = slug ?? slugify(input.name)
     if (!id) throw new HttpError(400, 'Please check the details you entered.', { name: 'Enter a name' })
-    if (await categoryModel.exists(id)) throw new HttpError(409, 'A category with this name already exists.')
+    if (await categoryModel.exists(id)) {
+      throw new HttpError(409, 'Another category already uses this name or web address.')
+    }
 
-    await categoryModel.create({ id, ...input })
-    res.status(201).json({ success: true, data: { id, ...input, productCount: 0 } })
+    await categoryModel.create({ id, ...input, description: input.description ?? null })
+    const created = (await categoryModel.list({ publishedOnly: false })).find((c) => c.id === id)
+    res.status(201).json({ success: true, data: created })
   },
 
   async updateCategory(req: Request, res: Response) {
     const { id } = idParam.parse(req.params)
-    const patch = updateCategorySchema.parse(req.body)
-    if (!(await categoryModel.update(id, patch))) throw notFound('Category')
-    res.json({ success: true, message: 'Category updated' })
+    const { slug, ...patch } = updateCategorySchema.parse(req.body)
+    const newId = await categoryModel.update(id, { ...patch, ...(slug ? { id: slug } : {}) })
+    if (!newId) throw notFound('Category')
+    const updated = (await categoryModel.list({ publishedOnly: false })).find((c) => c.id === newId)
+    res.json({ success: true, data: updated })
   },
 
   async deleteCategory(req: Request, res: Response) {

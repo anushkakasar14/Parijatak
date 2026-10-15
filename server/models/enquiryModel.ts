@@ -200,8 +200,18 @@ export const enquiryModel = {
   },
 
   /** Headline figures for the admin dashboard. */
-  async stats() {
+  async stats(range: { from?: Date; to?: Date } = {}) {
     const db = await getDb()
+    const where: string[] = []
+    const params: unknown[] = []
+    if (range.from) {
+      params.push(range.from)
+      where.push(`created_at >= $${params.length}`)
+    }
+    if (range.to) {
+      params.push(range.to)
+      where.push(`created_at < $${params.length}`)
+    }
     const { rows } = await db.query<{
       total: number
       new: number
@@ -220,7 +230,8 @@ export const enquiryModel = {
               COUNT(*) FILTER (WHERE created_at > now() - interval '7 days')::int AS last_7_days,
               COUNT(*) FILTER (WHERE product_id IS NOT NULL)::int              AS product,
               COUNT(*) FILTER (WHERE sheet_synced_at IS NULL)::int             AS unsynced
-         FROM enquiries`,
+         FROM enquiries ${where.length ? `WHERE ${where.join(' AND ')}` : ''}`,
+      params,
     )
     const r = rows[0]
     return {

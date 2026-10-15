@@ -32,7 +32,10 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     return
   }
   if (type === 'entity.too.large' || status === 413) {
-    res.status(413).json({ success: false, message: 'Request is too large.' })
+    res.status(413).json({
+      success: false,
+      message: req.path.includes('/media') ? 'This file is too large. Images can be up to 4 MB.' : 'Request is too large.',
+    })
     return
   }
 

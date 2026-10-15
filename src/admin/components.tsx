@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
-import type { EnquiryStatus } from './types'
+import type { EnquiryStatus, PublicationStatus } from './types'
 import { primaryButtonClass, secondaryButtonClass } from './ui'
 
 const dateFormat = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
@@ -27,6 +27,17 @@ export function Pill({ tone = 'neutral', children }: { tone?: 'neutral' | 'ok' |
     warn: 'bg-amber-50 text-amber-900 ring-amber-200',
   }
   return <span className={`${pillClass} normal-case ${tones[tone]}`}>{children}</span>
+}
+
+const publicationLabels: Record<PublicationStatus, { label: string; tone: 'ok' | 'warn' | 'neutral' }> = {
+  published: { label: 'Published', tone: 'ok' },
+  draft: { label: 'Draft', tone: 'warn' },
+  archived: { label: 'Archived', tone: 'neutral' },
+}
+
+export function PublicationBadge({ status }: { status: PublicationStatus }) {
+  const { label, tone } = publicationLabels[status]
+  return <Pill tone={tone}>{label}</Pill>
 }
 
 export function PageHeader({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
@@ -116,7 +127,9 @@ export function Dialog({ open, onClose, title, children, width = 'max-w-lg' }: D
     <dialog
       ref={ref}
       aria-labelledby="admin-dialog-title"
-      onClose={onClose}
+      // Only this dialog's own events: a dialog opened on top of it (such as the image
+      // library over a product form) must not close it too.
+      onClose={(e) => e.target === e.currentTarget && onClose()}
       onClick={(e) => e.target === e.currentTarget && onClose()}
       className={`m-auto max-h-[90svh] w-[calc(100%-2rem)] ${width} overflow-y-auto rounded-lg bg-white p-0 font-sans text-stone-800 shadow-xl backdrop:bg-stone-900/50`}
     >

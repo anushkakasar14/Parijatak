@@ -1,3 +1,4 @@
+import { connectLambda } from '@netlify/blobs'
 import serverless from 'serverless-http'
 
 /**
@@ -21,11 +22,19 @@ async function build(): Promise<Handler> {
   // Imported lazily so a configuration problem becomes a clean JSON error
   // instead of a function that fails to start.
   const { createApp } = await import('../../server/app.ts')
-  return serverless(createApp()) as Handler
+  // Images are sent back as binary, not text.
+  return serverless(createApp(), { binary: ['image/*'] }) as Handler
 }
 
 export const handler: Handler = async (event, context) => {
   try {
+    // Gives Netlify Blobs (uploaded media) its credentials for this request.
+    try {
+      connectLambda(event as unknown as Parameters<typeof connectLambda>[0])
+    } catch {
+      // Not running on Netlify (e.g. a local bundle test) — media storage is unavailable there.
+    }
+
     handlerPromise ??= build()
     const run = await handlerPromise
 

@@ -23,10 +23,12 @@ const navGroups: { heading: string; items: NavItem[] }[] = [
     heading: 'Website content',
     items: [
       { label: 'Products', to: '/admin/products' },
-      { label: 'Homepage carousel', to: '/admin/carousel', upcoming: true },
-      { label: 'Offers & banners', to: '/admin/offers', upcoming: true },
-      { label: 'Homepage & About', to: '/admin/content', upcoming: true },
-      { label: 'Contact & social', to: '/admin/contact-details', upcoming: true },
+      { label: 'Categories', to: '/admin/categories' },
+      { label: 'Media library', to: '/admin/media' },
+      { label: 'Homepage carousel', to: '/admin/carousel' },
+      { label: 'Offers & banners', to: '/admin/offers' },
+      { label: 'Homepage & About', to: '/admin/content' },
+      { label: 'Contact & social', to: '/admin/contact-details' },
     ],
   },
   {
