@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
+import { enquiryStatusLabels } from './types'
 import type { EnquiryStatus, PublicationStatus } from './types'
 import { primaryButtonClass, secondaryButtonClass } from './ui'
 
@@ -9,6 +10,7 @@ export const formatDate = (iso: string) => dateFormat.format(new Date(iso))
 const statusStyles: Record<EnquiryStatus, string> = {
   new: 'bg-sky-100 text-sky-900 ring-sky-200',
   contacted: 'bg-amber-100 text-amber-900 ring-amber-200',
+  follow_up: 'bg-rose-100 text-rose-900 ring-rose-200',
   converted: 'bg-emerald-100 text-emerald-900 ring-emerald-200',
   closed: 'bg-stone-200 text-stone-700 ring-stone-300',
 }
@@ -17,7 +19,7 @@ const pillClass =
   'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap capitalize ring-1 ring-inset'
 
 export function StatusBadge({ status }: { status: EnquiryStatus }) {
-  return <span className={`${pillClass} ${statusStyles[status]}`}>{status}</span>
+  return <span className={`${pillClass} normal-case ${statusStyles[status]}`}>{enquiryStatusLabels[status]}</span>
 }
 
 export function Pill({ tone = 'neutral', children }: { tone?: 'neutral' | 'ok' | 'warn'; children: ReactNode }) {

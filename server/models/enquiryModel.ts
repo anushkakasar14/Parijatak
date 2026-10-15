@@ -162,7 +162,7 @@ export const enquiryModel = {
     if (filters.synced !== undefined)
       where.push(filters.synced ? 'sheet_synced_at IS NOT NULL' : 'sheet_synced_at IS NULL')
     if (filters.from) add((p) => `created_at >= ${p}`, filters.from)
-    if (filters.to) add((p) => `created_at <= ${p}`, filters.to)
+    if (filters.to) add((p) => `created_at < ${p}`, filters.to)
     if (filters.search) {
       // Escape LIKE wildcards so the search text is matched literally.
       const term = `%${filters.search.replace(/[\\%_]/g, '\\$&')}%`
@@ -216,6 +216,7 @@ export const enquiryModel = {
       total: number
       new: number
       contacted: number
+      follow_up: number
       converted: number
       closed: number
       last_7_days: number
@@ -225,6 +226,7 @@ export const enquiryModel = {
       `SELECT COUNT(*)::int                                                    AS total,
               COUNT(*) FILTER (WHERE status = 'new')::int                      AS new,
               COUNT(*) FILTER (WHERE status = 'contacted')::int                AS contacted,
+              COUNT(*) FILTER (WHERE status = 'follow_up')::int                AS follow_up,
               COUNT(*) FILTER (WHERE status = 'converted')::int                AS converted,
               COUNT(*) FILTER (WHERE status = 'closed')::int                   AS closed,
               COUNT(*) FILTER (WHERE created_at > now() - interval '7 days')::int AS last_7_days,
@@ -236,7 +238,13 @@ export const enquiryModel = {
     const r = rows[0]
     return {
       total: r.total,
-      byStatus: { new: r.new, contacted: r.contacted, converted: r.converted, closed: r.closed },
+      byStatus: {
+        new: r.new,
+        contacted: r.contacted,
+        follow_up: r.follow_up,
+        converted: r.converted,
+        closed: r.closed,
+      },
       last7Days: r.last_7_days,
       productEnquiries: r.product,
       unsynced: r.unsynced,

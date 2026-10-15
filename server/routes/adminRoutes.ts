@@ -16,6 +16,7 @@ adminRoutes.use(adminLimiter, requireAdmin)
 const write = requireRole('admin')
 
 adminRoutes.get('/overview', adminController.overview)
+adminRoutes.get('/integrations/google-sheets', adminController.googleSheetsHealth)
 
 adminRoutes.get('/products', content.listProducts)
 adminRoutes.post('/products', write, content.createProduct)

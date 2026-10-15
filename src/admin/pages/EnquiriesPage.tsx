@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ApiError, adminFetch } from '../api'
 import { useAuth } from '../AuthContext'
+import { copyText } from '../clipboard'
 import {
   Dialog,
   EmptyState,
@@ -14,14 +15,32 @@ import {
   formatDate,
 } from '../components'
 import { useApi, useDebounced } from '../hooks'
-import { enquiryStatuses, inquiryTypes } from '../types'
+import { enquiryStatusLabels, enquiryStatuses, inquiryTypes } from '../types'
 import type { Enquiry, EnquiryStatus, Paginated } from '../types'
 import { fieldClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../ui'
 
 const PAGE_SIZE = 20
 
 /** Filters live in the URL, so they survive a refresh and can be linked to. */
-const FILTER_KEYS = ['search', 'status', 'inquiryType', 'hasProduct', 'synced'] as const
+const FILTER_KEYS = ['search', 'status', 'inquiryType', 'hasProduct', 'synced', 'from', 'to'] as const
+
+/** A small button that copies text and briefly confirms it. */
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
+  const copy = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    setState((await copyText(text, e.currentTarget)) ? 'copied' : 'failed')
+    window.setTimeout(() => setState('idle'), 2000)
+  }
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      className="rounded px-1.5 py-0.5 text-sm text-stone-500 ring-1 ring-stone-200 hover:bg-stone-50 hover:text-stone-800"
+    >
+      <span aria-live="polite">{state === 'copied' ? 'Copied' : state === 'failed' ? 'Copy failed' : label}</span>
+    </button>
+  )
+}
 
 function EnquiryDetail({
   enquiry,
@@ -35,8 +54,11 @@ function EnquiryDetail({
   const { user } = useAuth()
   const canEdit = user?.role === 'admin'
   const [status, setStatus] = useState<EnquiryStatus>(enquiry.status)
+  const [notes, setNotes] = useState(enquiry.internalNotes ?? '')
   const [saving, setSaving] = useState(false)
   const [result, setResult] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
+
+  const changed = status !== enquiry.status || notes.trim() !== (enquiry.internalNotes ?? '')
 
   const save = async () => {
     setSaving(true)
@@ -44,10 +66,11 @@ function EnquiryDetail({
     try {
       const updated = await adminFetch<Enquiry>(`/enquiries/${enquiry.id}`, {
         method: 'PATCH',
-        body: { status },
+        body: { status, internalNotes: notes },
       })
       onUpdated(updated)
-      setResult({ kind: 'ok', text: 'Status saved.' })
+      setNotes(updated.internalNotes ?? '')
+      setResult({ kind: 'ok', text: 'Saved.' })
     } catch (err) {
       setResult({
         kind: 'error',
@@ -60,6 +83,15 @@ function EnquiryDetail({
 
   const whatsappNumber = enquiry.phone.replace(/\D/g, '')
   const linkClass = 'font-medium text-maroon hover:underline'
+  const summary = [
+    `Name: ${enquiry.name}`,
+    `Email: ${enquiry.email}`,
+    `Phone: ${enquiry.phone}`,
+    `About: ${enquiry.inquiryType}${enquiry.productName ? ` — ${enquiry.productName}` : ''}`,
+    `Received: ${formatDate(enquiry.createdAt)}`,
+    '',
+    enquiry.message,
+  ].join('\n')
 
   return (
     <Dialog open onClose={onClose} title={`Enquiry from ${enquiry.name}`} width="max-w-2xl">
@@ -77,18 +109,20 @@ function EnquiryDetail({
         </div>
         <div>
           <dt className="text-sm text-stone-500">Email</dt>
-          <dd className="break-all">
+          <dd className="flex flex-wrap items-center gap-x-3 gap-y-1 break-all">
             <a href={`mailto:${enquiry.email}`} className={linkClass}>
               {enquiry.email}
             </a>
+            <CopyButton text={enquiry.email} label="Copy" />
           </dd>
         </div>
         <div>
           <dt className="text-sm text-stone-500">Contact number</dt>
-          <dd className="flex flex-wrap gap-x-4">
+          <dd className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <a href={`tel:${enquiry.phone}`} className={linkClass}>
               {enquiry.phone}
             </a>
+            <CopyButton text={enquiry.phone} label="Copy" />
             <a
               href={`https://wa.me/${whatsappNumber}`}
               target="_blank"
@@ -100,7 +134,10 @@ function EnquiryDetail({
           </dd>
         </div>
         <div className="sm:col-span-2">
-          <dt className="text-sm text-stone-500">Message</dt>
+          <dt className="flex items-center justify-between gap-3 text-sm text-stone-500">
+            Message
+            <CopyButton text={summary} label="Copy all details" />
+          </dt>
           <dd className="mt-1 rounded-md bg-stone-50 p-3 break-words whitespace-pre-wrap">
             {enquiry.message}
           </dd>
@@ -108,22 +145,24 @@ function EnquiryDetail({
         <div className="sm:col-span-2">
           <dt className="text-sm text-stone-500">Google Sheets</dt>
           <dd>
-            {enquiry.sheetSyncedAt
-              ? `Copied to the sheet on ${formatDate(enquiry.sheetSyncedAt)}`
-              : 'Not in the sheet yet'}
+            {enquiry.sheetSyncedAt ? (
+              `Copied to the sheet on ${formatDate(enquiry.sheetSyncedAt)}`
+            ) : (
+              <>
+                Not in the sheet yet.
+                {enquiry.sheetSyncError && (
+                  <span className="block text-sm text-red-700">Last attempt failed: {enquiry.sheetSyncError}</span>
+                )}
+              </>
+            )}
           </dd>
         </div>
       </dl>
 
-      <div className="mt-6 border-t border-stone-200 pt-5">
-        {result && (
-          <div className="mb-4">
-            <Notice kind={result.kind}>{result.text}</Notice>
-          </div>
-        )}
+      <div className="mt-6 space-y-4 border-t border-stone-200 pt-5">
         {canEdit ? (
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-44 flex-1">
+          <>
+            <div>
               <label htmlFor="enquiry-status" className={labelClass}>
                 Status
               </label>
@@ -131,29 +170,50 @@ function EnquiryDetail({
                 id="enquiry-status"
                 value={status}
                 onChange={(e) => setStatus(e.target.value as EnquiryStatus)}
-                className={`${fieldClass} capitalize`}
+                className={fieldClass}
               >
                 {enquiryStatuses.map((s) => (
                   <option key={s} value={s}>
-                    {s}
+                    {enquiryStatusLabels[s]}
                   </option>
                 ))}
               </select>
             </div>
-            <button
-              type="button"
-              onClick={save}
-              disabled={saving || status === enquiry.status}
-              className={primaryButtonClass}
-            >
-              {saving ? 'Saving…' : 'Save status'}
+            <div>
+              <label htmlFor="enquiry-notes" className={labelClass}>
+                Internal notes
+              </label>
+              <textarea
+                id="enquiry-notes"
+                rows={4}
+                maxLength={2000}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                aria-describedby="enquiry-notes-hint"
+                className={fieldClass}
+              />
+              <p id="enquiry-notes-hint" className="mt-1.5 text-sm text-stone-500">
+                Only visible in the admin panel — for example when you called and what was agreed.
+              </p>
+            </div>
+            {result && <Notice kind={result.kind}>{result.text}</Notice>}
+            <button type="button" onClick={save} disabled={saving || !changed} className={primaryButtonClass}>
+              {saving ? 'Saving…' : 'Save changes'}
             </button>
-          </div>
+          </>
         ) : (
-          <p className="flex items-center gap-3 text-stone-600">
-            Status <StatusBadge status={enquiry.status} />
-            <span className="text-sm">Your account can view enquiries but not change them.</span>
-          </p>
+          <>
+            <p className="flex items-center gap-3 text-stone-600">
+              Status <StatusBadge status={enquiry.status} />
+            </p>
+            {enquiry.internalNotes && (
+              <div>
+                <p className="text-sm text-stone-500">Internal notes</p>
+                <p className="mt-1 whitespace-pre-wrap">{enquiry.internalNotes}</p>
+              </div>
+            )}
+            <p className="text-sm text-stone-500">Your account can view enquiries but not change them.</p>
+          </>
         )}
       </div>
     </Dialog>
@@ -170,7 +230,8 @@ export function EnquiriesPage() {
 
   /** Sets or clears one filter and returns to the first page. */
   const setFilter = (key: string, value: string) => {
-    const next = new URLSearchParams(params)
+    // From the address bar, which is always current, so quick changes cannot undo each other.
+    const next = new URLSearchParams(window.location.search)
     if (value) next.set(key, value)
     else next.delete(key)
     next.delete('page')
@@ -194,11 +255,15 @@ export function EnquiriesPage() {
   })
 
   const hasFilters = FILTER_KEYS.some((key) => params.get(key))
+  // The same filters, without paging: the file holds every matching enquiry (up to 5,000).
+  const exportQuery = new URLSearchParams(
+    FILTER_KEYS.flatMap((key) => (params.get(key) ? [[key, params.get(key)!]] : [])),
+  ).toString()
   const total = data?.pagination.total ?? 0
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const goToPage = (target: number) => {
-    const next = new URLSearchParams(params)
+    const next = new URLSearchParams(window.location.search)
     if (target > 1) next.set('page', String(target))
     else next.delete('page')
     setParams(next)
@@ -247,12 +312,12 @@ export function EnquiriesPage() {
             id="filter-status"
             value={params.get('status') ?? ''}
             onChange={(e) => setFilter('status', e.target.value)}
-            className={`${selectClass} capitalize`}
+            className={selectClass}
           >
             <option value="">All statuses</option>
             {enquiryStatuses.map((s) => (
               <option key={s} value={s}>
-                {s}
+                {enquiryStatusLabels[s]}
               </option>
             ))}
           </select>
@@ -304,6 +369,53 @@ export function EnquiriesPage() {
             <option value="true">In the sheet</option>
             <option value="false">Not in the sheet yet</option>
           </select>
+        </div>
+        <div className="flex flex-wrap items-end gap-3 sm:col-span-2 lg:col-span-5">
+          <div>
+            <label htmlFor="filter-from" className="text-sm text-stone-600">
+              Received from
+            </label>
+            <input
+              id="filter-from"
+              type="date"
+              value={params.get('from') ?? ''}
+              max={params.get('to') || undefined}
+              onChange={(e) => setFilter('from', e.target.value)}
+              className={`${selectClass} mt-1 py-2`}
+            />
+          </div>
+          <div>
+            <label htmlFor="filter-to" className="text-sm text-stone-600">
+              to
+            </label>
+            <input
+              id="filter-to"
+              type="date"
+              value={params.get('to') ?? ''}
+              min={params.get('from') || undefined}
+              onChange={(e) => setFilter('to', e.target.value)}
+              className={`${selectClass} mt-1 py-2`}
+            />
+          </div>
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchText('')
+                setParams(new URLSearchParams(), { replace: true })
+              }}
+              className={secondaryButtonClass}
+            >
+              Clear filters
+            </button>
+          )}
+          <a
+            href={`/api/enquiries/export.csv${exportQuery ? `?${exportQuery}` : ''}`}
+            download
+            className={`${secondaryButtonClass} ml-auto`}
+          >
+            Download CSV
+          </a>
         </div>
       </form>
 

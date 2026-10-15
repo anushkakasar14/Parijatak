@@ -472,7 +472,7 @@ describe('dashboard overview', () => {
     assert.equal(res.status, 200)
     assert.equal(res.headers.get('cache-control'), 'no-store')
     assert.equal(data.enquiries.total, 2)
-    assert.deepEqual(data.enquiries.byStatus, { new: 1, contacted: 1, converted: 0, closed: 0 })
+    assert.deepEqual(data.enquiries.byStatus, { new: 1, contacted: 1, follow_up: 0, converted: 0, closed: 0 })
     assert.equal(data.enquiries.last7Days, 2)
     assert.equal(data.googleSheets.pending, 1)
     assert.equal(data.googleSheets.configured, false)

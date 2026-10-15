@@ -2,7 +2,9 @@ import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { enquiryModel } from '../models/enquiryModel.ts'
 import { enquiryService } from '../services/enquiryService.ts'
+import { toCsv } from '../utils/csv.ts'
 import { HttpError } from '../utils/httpError.ts'
+import { formatIndiaDateTime, indiaDayRange } from '../utils/indiaDate.ts'
 import {
   createEnquirySchema,
   listEnquiriesSchema,
@@ -10,6 +12,26 @@ import {
 } from '../utils/schemas.ts'
 
 const isUuid = (value: string) => z.uuid().safeParse(value).success
+
+/** Most enquiries a single CSV export holds. */
+const EXPORT_LIMIT = 5000
+
+const statusLabels: Record<string, string> = {
+  new: 'New',
+  contacted: 'Contacted',
+  follow_up: 'Follow-up required',
+  converted: 'Converted',
+  closed: 'Closed',
+}
+
+/** Filters from the query string, with the date range turned into India-time instants. */
+function parseFilters(query: unknown) {
+  const { from, to, ...rest } = listEnquiriesSchema.parse(query)
+  if (from && to && from > to) {
+    throw new HttpError(400, 'Please check the dates.', { to: 'The end date must be on or after the start date' })
+  }
+  return { ...rest, ...indiaDayRange({ from, to }) }
+}
 
 export const enquiryController = {
   /** Public: contact form and product enquiries. */
@@ -25,13 +47,48 @@ export const enquiryController = {
 
   /** Admin only: list with filters and search. */
   async list(req: Request, res: Response) {
-    const filters = listEnquiriesSchema.parse(req.query)
+    const filters = parseFilters(req.query)
     const { enquiries, total } = await enquiryModel.list(filters)
     res.json({
       success: true,
       data: enquiries,
       pagination: { total, limit: filters.limit, offset: filters.offset },
     })
+  },
+
+  /** Admin only: every enquiry matching the filters, as a spreadsheet file. */
+  async exportCsv(req: Request, res: Response) {
+    const filters = { ...parseFilters(req.query), limit: EXPORT_LIMIT, offset: 0 }
+    const { enquiries, total } = await enquiryModel.list(filters)
+
+    const csv = toCsv(
+      ['Received (India time)', 'Name', 'Email', 'Contact number', 'Inquiry type', 'Product', 'Message', 'Status', 'Internal notes', 'Source', 'In Google Sheets', 'Reference'],
+      enquiries.map((e) => [
+        formatIndiaDateTime(e.createdAt),
+        e.name,
+        e.email,
+        e.phone,
+        e.inquiryType,
+        e.productName,
+        e.message,
+        statusLabels[e.status] ?? e.status,
+        e.internalNotes,
+        e.source,
+        e.sheetSyncedAt ? 'Yes' : 'No',
+        e.id,
+      ]),
+    )
+
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+    res.set({
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="parijatak-enquiries-${today}.csv"`,
+      'Cache-Control': 'no-store',
+      // Lets the admin screen say when a download was cut short.
+      'X-Total-Count': String(total),
+      'X-Exported-Count': String(enquiries.length),
+    })
+    res.send(csv)
   },
 
   /** Admin only. */

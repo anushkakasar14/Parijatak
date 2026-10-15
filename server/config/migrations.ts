@@ -249,4 +249,14 @@ export const migrations: Migration[] = [
       `CREATE INDEX media_assets_created_idx ON media_assets (created_at DESC)`,
     ],
   },
+  {
+    version: 5,
+    name: 'enquiry_follow_up_status',
+    // Additive: allows one more status value. Existing enquiries keep their status.
+    statements: [
+      `ALTER TABLE enquiries DROP CONSTRAINT IF EXISTS enquiries_status_check`,
+      `ALTER TABLE enquiries ADD CONSTRAINT enquiries_status_check
+         CHECK (status IN ('new', 'contacted', 'follow_up', 'converted', 'closed'))`,
+    ],
+  },
 ]

@@ -10,6 +10,7 @@ enquiryRoutes.post('/', enquiryLimiter, enquiryController.create)
 
 // Admin — reading is open to any signed-in administrator; changes need the `admin` role.
 enquiryRoutes.get('/', adminLimiter, requireAdmin, enquiryController.list)
+enquiryRoutes.get('/export.csv', adminLimiter, requireAdmin, enquiryController.exportCsv)
 enquiryRoutes.post(
   '/sync-sheet',
   adminLimiter,

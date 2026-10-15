@@ -106,6 +106,8 @@ Set these in `.env` locally and in **Netlify → Site configuration → Environm
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | for Sheets | — | Service account's `client_email` |
 | `GOOGLE_PRIVATE_KEY` | for Sheets | — | Service account's `private_key` |
 | `GOOGLE_SHEETS_TAB` | no | first tab | Name of the tab to write to |
+| `GOOGLE_SHEETS_WEBHOOK_URL` | for Sheets via Apps Script | — | The Apps Script web app address (ends in `/exec`). Replaces the three service-account variables |
+| `GOOGLE_SHEETS_WEBHOOK_TOKEN` | with the URL | — | Shared secret, the same as `TOKEN` in the script (24+ characters) |
 | `ADMIN_SESSION_IDLE_MINUTES` | no | `30` | Minutes of inactivity before an admin is signed out |
 | `ADMIN_SESSION_MAX_HOURS` | no | `12` | Maximum length of an admin session |
 | `ADMIN_API_KEY` | no | — | Legacy shared key for scripts (see [Legacy API key](#legacy-api-key)). Minimum 24 characters. Leave unset to disable |
@@ -190,22 +192,34 @@ DROP TABLE admin_login_attempts, admin_sessions, admin_users;
 DELETE FROM schema_migrations WHERE version = 2;
 ```
 
-## Google Cloud and Google Sheets setup
+## Google Sheets setup
 
-Optional. Leave the three `GOOGLE_*` variables empty and the API simply skips the sheet.
+Optional. With no Google variables set, the API simply skips the sheet. There are two ways to connect it; the first is simpler.
 
-### 1. Google Cloud project and Sheets API
+### Option A: Apps Script (no Google Cloud project)
+
+1. In the Google Sheet: **Extensions → Apps Script**. Replace the code with [docs/google-sheets-apps-script.js](docs/google-sheets-apps-script.js) and set `TOKEN` to a long random value (at least 24 characters).
+2. **Save**, then **Deploy → New deployment** → type **Web app** → *Execute as*: **Me**, *Who has access*: **Anyone** → **Deploy**, and allow the access Google asks for.
+3. Copy the **Web app URL** (ends in `/exec`).
+4. In Netlify, add `GOOGLE_SHEETS_WEBHOOK_URL` (the URL) and `GOOGLE_SHEETS_WEBHOOK_TOKEN` (the same TOKEN), marked secret, then redeploy.
+5. Admin → Overview → Google Sheets should say **Connected** after **Check connection**.
+
+"Anyone" only lets the address be called without a Google sign-in; the script refuses every request without the TOKEN and offers no way to read the sheet. Rows carry the enquiry's reference in the last column, so a retry never adds a duplicate. After changing the script, deploy a **new version** of the same deployment (Deploy → Manage deployments → Edit) so the URL stays the same.
+
+### Option B: Service account
+
+#### 1. Google Cloud project and Sheets API
 
 1. Open [Google Cloud Console](https://console.cloud.google.com/) and create a project (or pick an existing one).
 2. Go to **APIs & Services → Library**, find **Google Sheets API** and click **Enable**.
 
-### 2. Service account
+#### 2. Service account
 
 1. Go to **APIs & Services → Credentials → Create credentials → Service account**. Give it any name; no roles are needed.
 2. Open the new service account → **Keys → Add key → Create new key → JSON**. A JSON file downloads.
 3. Keep that file private. Do **not** put it in this project folder, the frontend, `public/`, or GitHub.
 
-### 3. The sheet
+#### 3. The sheet
 
 1. Create a Google Sheet named **Parijatak Customer Enquiries**.
 2. Click **Share** and add the service account's email address (the `client_email` in the JSON file) as an **Editor**.
@@ -217,7 +231,7 @@ Optional. Leave the three `GOOGLE_*` variables empty and the API simply skips th
 
    Dates are written in India Standard Time, e.g. `2026-10-12 15:42`.
 
-### 4. Environment variables
+#### 4. Environment variables
 
 - `GOOGLE_SHEETS_ID` — the long ID in the sheet's URL: `docs.google.com/spreadsheets/d/<THIS PART>/edit`
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL` — `client_email` from the JSON file
@@ -227,7 +241,7 @@ Optional. Leave the three `GOOGLE_*` variables empty and the API simply skips th
   GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END PRIVATE KEY-----\n"
   ```
 
-### 5. Check it
+#### 5. Check it
 
 Open `/api/health` — it should report `"googleSheets": "configured"`. Submit a test enquiry and look for the new row.
 
@@ -279,8 +293,8 @@ The admin panel lives at `/admin`. Administrators sign in with an email and pass
 
 | Section | Status |
 | --- | --- |
-| Overview | Enquiry counts by status, last 7 days, latest enquiries, Google Sheets sync status with a retry button |
-| Enquiries | List with search, filters (status, type, product/general, sheet status), paging, full details, and status changes |
+| Overview | Enquiry counts by status (including follow-up required) for any date range, product and offer counts, recent changes, quick actions, and a live Google Sheets connection check with a retry button |
+| Enquiries | List with search, filters (status, type, product/general, sheet status, received dates in India time), paging, CSV download of the filtered list, full details with copy buttons, status changes and internal notes |
 | Products | View-only list of published products |
 | Homepage carousel, Offers & banners, Homepage & About, Contact & social | **Screens not built yet** — each page says so. The API behind them exists and is tested (see [Admin content endpoints](#admin-content-endpoints)) |
 | Account | Who is signed in, and change password |

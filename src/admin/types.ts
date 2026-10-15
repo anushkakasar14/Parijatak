@@ -1,5 +1,13 @@
-export const enquiryStatuses = ['new', 'contacted', 'converted', 'closed'] as const
+export const enquiryStatuses = ['new', 'contacted', 'follow_up', 'converted', 'closed'] as const
 export type EnquiryStatus = (typeof enquiryStatuses)[number]
+
+export const enquiryStatusLabels: Record<EnquiryStatus, string> = {
+  new: 'New',
+  contacted: 'Contacted',
+  follow_up: 'Follow-up required',
+  converted: 'Converted',
+  closed: 'Closed',
+}
 
 export const inquiryTypes = [
   'Product Enquiry',
@@ -24,6 +32,9 @@ export interface Enquiry {
   createdAt: string
   updatedAt: string
   sheetSyncedAt: string | null
+  /** Why the last attempt to copy it to Google Sheets failed, if it did. */
+  sheetSyncError: string | null
+  internalNotes: string | null
 }
 
 export interface Paginated<T> {
@@ -42,7 +53,7 @@ export interface Overview {
   }
   products: { total: number; active: number; published: number; draft: number; archived: number }
   offers: { active: number; scheduled: number }
-  googleSheets: { configured: boolean; pending: number }
+  googleSheets: { configured: boolean; mode: 'apps-script' | 'service-account' | null; pending: number }
   recentEnquiries: Enquiry[]
   recentProducts: {
     id: string

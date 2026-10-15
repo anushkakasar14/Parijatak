@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ApiError, adminFetch } from '../api'
 import { useAuth } from '../AuthContext'
@@ -37,11 +37,47 @@ const quickActions = [
   { label: 'Add an offer', to: '/admin/offers', note: 'Offers & banners' },
 ]
 
+interface SheetsHealth {
+  ok: boolean
+  mode: 'apps-script' | 'service-account' | null
+  message: string
+  sheetTitle?: string
+  checkedAt: string
+}
+
+/**
+ * Google Sheets status. "Connected" is shown only after Google has actually answered —
+ * being set up is not the same as working.
+ */
 function SheetsCard({ sheets, onSynced }: { sheets: Overview['googleSheets']; onSynced: () => void }) {
   const { user } = useAuth()
+  const [health, setHealth] = useState<SheetsHealth | null>(null)
+  const [checking, setChecking] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
+
+  const check = async () => {
+    setChecking(true)
+    try {
+      setHealth(await adminFetch<SheetsHealth>('/admin/integrations/google-sheets'))
+    } catch (err) {
+      setHealth({
+        ok: false,
+        mode: sheets.mode,
+        checkedAt: new Date().toISOString(),
+        message: err instanceof ApiError ? err.message : 'The check could not be run.',
+      })
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  // Check once when the dashboard opens, if there is anything to check.
+  useEffect(() => {
+    if (sheets.configured) void check()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheets.configured])
 
   const retry = async () => {
     setBusy(true)
@@ -71,28 +107,47 @@ function SheetsCard({ sheets, onSynced }: { sheets: Overview['googleSheets']; on
     }
   }
 
+  const pill = !sheets.configured ? (
+    <Pill tone="warn">Not set up</Pill>
+  ) : checking || !health ? (
+    <Pill>Checking…</Pill>
+  ) : health.ok ? (
+    <Pill tone="ok">Connected</Pill>
+  ) : (
+    <Pill tone="warn">Connection problem</Pill>
+  )
+
   return (
     <section className={cardClass} aria-labelledby="sheets-heading">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="sheets-heading" className="font-sans text-lg font-medium text-stone-900">
           Google Sheets
         </h2>
-        {!sheets.configured ? (
-          <Pill tone="warn">Not connected</Pill>
-        ) : sheets.pending ? (
-          <Pill tone="warn">{sheets.pending} waiting</Pill>
-        ) : (
-          <Pill tone="ok">Up to date</Pill>
-        )}
+        {pill}
       </div>
 
-      <p className="mt-2 text-stone-600">
-        {!sheets.configured
-          ? 'Google Sheets is not connected, so enquiries are not being copied to a sheet. Every enquiry is still saved here.'
-          : sheets.pending
-            ? `${sheets.pending} ${sheets.pending === 1 ? 'enquiry has' : 'enquiries have'} not reached the sheet yet. They are safely saved here and can be sent again.`
-            : 'Every enquiry has been copied to the sheet.'}
-      </p>
+      <div className="mt-2 space-y-2 text-stone-600" aria-live="polite">
+        {!sheets.configured ? (
+          <p>Google Sheets is not set up, so enquiries are not copied to a sheet. Every enquiry is still saved here.</p>
+        ) : health && !checking ? (
+          health.ok ? (
+            <p>
+              Google answered just now{health.sheetTitle ? ` — writing to “${health.sheetTitle}”` : ''}.
+            </p>
+          ) : (
+            <p className="text-red-800">{health.message}</p>
+          )
+        ) : (
+          <p>Asking Google…</p>
+        )}
+        {sheets.configured && (
+          <p>
+            {sheets.pending
+              ? `${sheets.pending} ${sheets.pending === 1 ? 'enquiry has' : 'enquiries have'} not reached the sheet yet. They are safely saved here and can be sent again.`
+              : 'Every enquiry has been copied to the sheet.'}
+          </p>
+        )}
+      </div>
 
       {result && (
         <div className="mt-4">
@@ -100,16 +155,21 @@ function SheetsCard({ sheets, onSynced }: { sheets: Overview['googleSheets']; on
         </div>
       )}
 
-      {sheets.configured && sheets.pending > 0 && (
-        <div className="mt-4 flex flex-wrap items-center gap-4">
-          {user?.role === 'admin' && (
+      {sheets.configured && (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button type="button" onClick={check} disabled={checking} className={secondaryButtonClass}>
+            {checking ? 'Checking…' : 'Check connection'}
+          </button>
+          {sheets.pending > 0 && user?.role === 'admin' && (
             <button type="button" onClick={() => setConfirming(true)} className={primaryButtonClass}>
-              Send to Google Sheets
+              Send waiting enquiries
             </button>
           )}
-          <Link to="/admin/enquiries?synced=false" className="text-sm font-medium text-maroon hover:underline">
-            See which ones
-          </Link>
+          {sheets.pending > 0 && (
+            <Link to="/admin/enquiries?synced=false" className="text-sm font-medium text-maroon hover:underline">
+              See which ones
+            </Link>
+          )}
         </div>
       )}
 
@@ -223,7 +283,7 @@ export function OverviewPage() {
         </div>
       )}
 
-      <ul className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <ul className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         {enquiryStatuses.map((status) => (
           <li key={status}>
             <Link

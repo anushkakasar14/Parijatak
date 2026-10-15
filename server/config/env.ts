@@ -54,6 +54,17 @@ const schema = z.object({
   /** Tab to write to. Leave empty to use the first tab of the spreadsheet. */
   GOOGLE_SHEETS_TAB: optional,
 
+  /**
+   * Alternative to the service account: the sheet's own Apps Script web app
+   * (docs/google-sheets-apps-script.js). Its address and the shared token in that script.
+   */
+  GOOGLE_SHEETS_WEBHOOK_URL: optional.refine((v) => !v || /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(v), {
+    message: 'GOOGLE_SHEETS_WEBHOOK_URL must be the web app address ending in /exec',
+  }),
+  GOOGLE_SHEETS_WEBHOOK_TOKEN: optional.refine((v) => !v || v.length >= 24, {
+    message: 'GOOGLE_SHEETS_WEBHOOK_TOKEN must be at least 24 characters',
+  }),
+
   WHATSAPP_NUMBER: z
     .string()
     .trim()

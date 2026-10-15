@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { ApiError, adminFetch } from '../api'
 import { useAuth } from '../AuthContext'
+import { copyText } from '../clipboard'
 import { ConfirmDialog, Dialog, EmptyState, ErrorNotice, LoadingBlock, Notice, PageHeader, formatDate } from '../components'
 import { TextInput } from '../forms'
 import { useApi, useDebounced } from '../hooks'
@@ -44,14 +45,7 @@ function AssetDetails({
     }
   }
 
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(asset.url)
-      setCopied(true)
-    } catch {
-      setCopied(false)
-    }
-  }
+  const copy = async (e: React.MouseEvent<HTMLButtonElement>) => setCopied(await copyText(asset.url, e.currentTarget))
 
   return (
     <Dialog open onClose={onClose} title={asset.filename} width="max-w-2xl">

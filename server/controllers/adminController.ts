@@ -4,6 +4,7 @@ import { offerModel } from '../models/contentModels.ts'
 import { enquiryModel } from '../models/enquiryModel.ts'
 import { productModel } from '../models/productModel.ts'
 import { googleSheetsService } from '../services/googleSheetsService.ts'
+import { indiaDayRange } from '../utils/indiaDate.ts'
 
 const rangeSchema = z
   .object({
@@ -12,26 +13,20 @@ const rangeSchema = z
   })
   .refine((r) => !r.from || !r.to || r.from <= r.to, { message: 'The start date must be before the end date', path: ['to'] })
 
-// Dates are whole days in India Standard Time.
-const startOfDay = (d: string) => new Date(`${d}T00:00:00+05:30`)
-const nextDay = (d: string) => new Date(startOfDay(d).getTime() + 24 * 60 * 60 * 1000)
 
 export const adminController = {
   /** Everything the dashboard's first screen shows, in one request. Optional `from`/`to` dates narrow the enquiry figures. */
   async overview(req: Request, res: Response) {
     const range = rangeSchema.parse(req.query)
     // One query after another: a request should hold a single database connection.
-    const enquiries = await enquiryModel.stats({
-      from: range.from ? startOfDay(range.from) : undefined,
-      to: range.to ? nextDay(range.to) : undefined,
-    })
+    const days = indiaDayRange(range)
+    const enquiries = await enquiryModel.stats(days)
     const products = await productModel.counts()
     const offers = await offerModel.counts()
     const recent = await enquiryModel.list({
       limit: 5,
       offset: 0,
-      from: range.from ? startOfDay(range.from) : undefined,
-      to: range.to ? nextDay(range.to) : undefined,
+      ...days,
     })
     const recentProducts = await productModel.adminList({ sort: 'updated', limit: 5, offset: 0 })
 
@@ -44,7 +39,9 @@ export const adminController = {
         offers,
         googleSheets: {
           configured: googleSheetsService.isConfigured(),
-          pending: enquiries.unsynced,
+          mode: googleSheetsService.mode(),
+          // Waiting enquiries of any date, not only those in the chosen range.
+          pending: range.from || range.to ? (await enquiryModel.stats()).unsynced : enquiries.unsynced,
         },
         recentEnquiries: recent.enquiries,
         recentProducts: recentProducts.products.map(({ id, name, status, imageUrl, updatedAt, category }) => ({
@@ -57,5 +54,10 @@ export const adminController = {
         })),
       },
     })
+  },
+
+  /** Asks Google now whether the sheet can be reached. The answer is never assumed. */
+  async googleSheetsHealth(_req: Request, res: Response) {
+    res.json({ success: true, data: await googleSheetsService.checkConnection() })
   },
 }

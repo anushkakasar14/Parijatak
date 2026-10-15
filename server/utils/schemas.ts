@@ -10,7 +10,7 @@ export const inquiryTypes = [
   'General Enquiry',
 ] as const
 
-export const enquiryStatuses = ['new', 'contacted', 'converted', 'closed'] as const
+export const enquiryStatuses = ['new', 'contacted', 'follow_up', 'converted', 'closed'] as const
 export const enquirySources = ['website', 'whatsapp', 'other'] as const
 
 /** Normalises an Indian mobile number to +91XXXXXXXXXX, or returns null if invalid. */
@@ -91,8 +91,9 @@ export const listEnquiriesSchema = z.object({
     .max(100)
     .optional()
     .transform((v) => v || undefined),
-  from: z.coerce.date().optional(),
-  to: z.coerce.date().optional(),
+  /** Whole days in India time, YYYY-MM-DD; both ends included. */
+  from: z.iso.date('Use a date like 2026-10-01').optional(),
+  to: z.iso.date('Use a date like 2026-10-31').optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 })
