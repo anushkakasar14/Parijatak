@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { whatsappMessages } from '../lib/whatsapp'
 import type { Product } from '../types'
 import { CloseIcon } from './Icons'
+import { ProductImages } from './ProductImages'
 import { WhatsAppButton } from './WhatsAppButton'
 
 const rupees = new Intl.NumberFormat('en-IN', {
@@ -33,7 +34,6 @@ interface ProductModalProps {
 
 export function ProductModal({ product, onClose }: ProductModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
-  const [imageIndex, setImageIndex] = useState(0)
 
   // Native <dialog>: focus is trapped while open, Escape closes, focus returns to the trigger.
   useEffect(() => {
@@ -41,7 +41,6 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
     if (!dialog) return
     if (product && !dialog.open) dialog.showModal()
     if (!product && dialog.open) dialog.close()
-    setImageIndex(0)
 
     document.documentElement.style.overflow = product ? 'hidden' : ''
     return () => {
@@ -66,14 +65,12 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
       ] as [string, ReactNode][]).filter(([, value]) => Boolean(value))
     : []
 
-  const images = product?.images ?? []
-  const image = images[imageIndex] ?? images[0]
-
   return (
     <dialog
       ref={dialogRef}
       aria-labelledby="product-modal-title"
-      onClose={onClose}
+      // Only this dialog: closing the full-screen picture view inside it must not close the product.
+      onClose={(e) => e.target === e.currentTarget && onClose()}
       onClick={(e) => e.target === e.currentTarget && onClose()}
       className="m-auto max-h-[92svh] w-[min(100%-1.5rem,66rem)] max-w-none overflow-y-auto bg-ivory text-ink backdrop:bg-ink/60"
     >
@@ -88,36 +85,8 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
             <CloseIcon />
           </button>
 
-          <div className="flex flex-col bg-cream">
-            <div className="aspect-[4/3] md:aspect-auto md:min-h-[36rem] md:flex-1">
-              {image && (
-                <img
-                  src={image.url}
-                  alt={image.alt || product.name}
-                  className="h-full w-full object-cover"
-                />
-              )}
-            </div>
-            {images.length > 1 && (
-              <ul className="flex gap-2 overflow-x-auto p-2" aria-label="More images">
-                {images.map((thumbnail, i) => (
-                  <li key={thumbnail.url}>
-                    <button
-                      type="button"
-                      onClick={() => setImageIndex(i)}
-                      aria-label={`Show image ${i + 1} of ${images.length}`}
-                      aria-current={i === imageIndex ? 'true' : undefined}
-                      className={`block h-16 w-16 overflow-hidden border-2 ${
-                        i === imageIndex ? 'border-maroon' : 'border-transparent'
-                      }`}
-                    >
-                      <img src={thumbnail.url} alt="" className="h-full w-full object-cover" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          {/* Keyed by product, so another product starts at its first picture */}
+          <ProductImages key={product.id} images={product.images} productName={product.name} />
 
           <div className="p-6 md:p-10 lg:p-12">
             <p className="eyebrow">{product.category}</p>

@@ -2,6 +2,7 @@ import express, { Router } from 'express'
 import { adminContentController as content } from '../controllers/adminContentController.ts'
 import { adminController } from '../controllers/adminController.ts'
 import { MAX_UPLOAD_BYTES, mediaController } from '../controllers/mediaController.ts'
+import { productImageController as productImages } from '../controllers/productImageController.ts'
 import { adminLimiter } from '../middleware/rateLimit.ts'
 import { requireAdmin, requireRole } from '../middleware/requireAdmin.ts'
 
@@ -24,6 +25,14 @@ adminRoutes.get('/products/:id', content.getProduct)
 adminRoutes.patch('/products/:id', write, content.updateProduct)
 adminRoutes.post('/products/:id/duplicate', write, content.duplicateProduct)
 adminRoutes.delete('/products/:id', write, content.deleteProduct)
+
+// A product's pictures, one at a time (the product form can also save them all at once).
+adminRoutes.get('/products/:id/images', productImages.list)
+adminRoutes.post('/products/:id/images', write, productImages.add)
+adminRoutes.put('/products/:id/images/order', write, productImages.reorder)
+adminRoutes.patch('/products/:id/images/:imageId', write, productImages.update)
+adminRoutes.post('/products/:id/images/:imageId/primary', write, productImages.setPrimary)
+adminRoutes.delete('/products/:id/images/:imageId', write, productImages.remove)
 
 adminRoutes.get('/categories', content.listCategories)
 adminRoutes.post('/categories', write, content.createCategory)

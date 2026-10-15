@@ -112,10 +112,15 @@ interface DialogProps {
   children: ReactNode
   /** Tailwind max-width class. */
   width?: string
+  /**
+   * When true, Escape does not close the dialog by itself: it calls `onClose`, which can
+   * ask before discarding unsaved changes and then close by setting `open` to false.
+   */
+  guarded?: boolean
 }
 
 /** Modal built on the native <dialog>: focus is trapped, Escape closes, focus returns afterwards. */
-export function Dialog({ open, onClose, title, children, width = 'max-w-lg' }: DialogProps) {
+export function Dialog({ open, onClose, title, children, width = 'max-w-lg', guarded = false }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
@@ -131,6 +136,12 @@ export function Dialog({ open, onClose, title, children, width = 'max-w-lg' }: D
       aria-labelledby="admin-dialog-title"
       // Only this dialog's own events: a dialog opened on top of it (such as the image
       // library over a product form) must not close it too.
+      onCancel={(e) => {
+        if (guarded && e.target === e.currentTarget) {
+          e.preventDefault()
+          onClose()
+        }
+      }}
       onClose={(e) => e.target === e.currentTarget && onClose()}
       onClick={(e) => e.target === e.currentTarget && onClose()}
       className={`m-auto max-h-[90svh] w-[calc(100%-2rem)] ${width} overflow-y-auto rounded-lg bg-white p-0 font-sans text-stone-800 shadow-xl backdrop:bg-stone-900/50`}

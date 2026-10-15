@@ -4,6 +4,7 @@ import { ApiError, uploadFile } from './api'
 import { Dialog, EmptyState, ErrorNotice, LoadingBlock, Notice } from './components'
 import { MEDIA_LIST_ID } from './forms'
 import { useApi, useDebounced } from './hooks'
+import { byFileName, shrinkImage } from './imageResize'
 import type { MediaAsset, Paginated } from './types'
 import { fieldClass, labelClass, secondaryButtonClass } from './ui'
 
@@ -66,6 +67,8 @@ function precheck(file: File): string | null {
 interface UploadState {
   name: string
   progress: number
+  /** Being made smaller before upload. */
+  preparing?: boolean
 }
 
 /**
@@ -89,7 +92,14 @@ export function UploadButton({
 
   const upload = async (files: File[]) => {
     const failed: string[] = []
-    for (const file of files) {
+    // In name order, so photos numbered 1, 1.1, 1.2 arrive in that order.
+    for (const original of [...files].sort(byFileName)) {
+      if (original.type && !ACCEPTED.includes(original.type)) {
+        failed.push(`“${original.name}” is not a JPEG, PNG or WebP image.`)
+        continue
+      }
+      setCurrent({ name: original.name, progress: 0, preparing: true })
+      const file = await shrinkImage(original)
       const refused = precheck(file)
       if (refused) {
         failed.push(refused)
@@ -131,7 +141,7 @@ export function UploadButton({
       {current && (
         <div role="status" className="max-w-xs text-sm text-stone-600">
           <p className="truncate">
-            {current.name} — {Math.round(current.progress * 100)}%
+            {current.name} — {current.preparing ? 'preparing…' : `${Math.round(current.progress * 100)}%`}
           </p>
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-stone-200">
             <div className="h-full bg-maroon transition-[width]" style={{ width: `${current.progress * 100}%` }} />

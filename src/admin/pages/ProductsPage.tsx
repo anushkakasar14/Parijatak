@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ApiError, adminFetch } from '../api'
@@ -17,9 +17,11 @@ import {
 } from '../components'
 import { Checkbox, MediaLibraryList, SelectInput, TextArea, TextInput, useFormState } from '../forms'
 import { useApi, useDebounced } from '../hooks'
-import { MediaImage, MediaLibraryDialog, MediaPicker, UploadButton } from '../media'
+import { MediaImage } from '../media'
+import { ProductGallery } from '../ProductGallery'
+import type { DraftImage } from '../ProductGallery'
 import { statusOptions } from '../types'
-import type { AdminProduct, Category, MediaAsset, Paginated, ProductImage, PublicationStatus } from '../types'
+import type { AdminProduct, Category, Paginated, PublicationStatus } from '../types'
 import { cardClass, fieldClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../ui'
 
 const PAGE_SIZE = 20
@@ -55,9 +57,8 @@ interface ProductForm {
   variants: string
   price: string
   offerPrice: string
-  imageUrl: string
-  imageAlt: string
-  gallery: ProductImage[]
+  /** The first picture is the main one. */
+  images: DraftImage[]
   customizationAvailable: boolean
   isFeatured: boolean
   displayOrder: string
@@ -76,89 +77,11 @@ const toForm = (product: AdminProduct | null, categories: Category[]): ProductFo
   variants: product?.variants.join('\n') ?? '',
   price: product?.price?.toString() ?? '',
   offerPrice: product?.offerPrice?.toString() ?? '',
-  imageUrl: product?.imageUrl ?? '',
-  imageAlt: product?.imageAlt ?? '',
-  gallery: product?.images.slice(1) ?? [],
+  images: (product?.images ?? []).map((image, i) => ({ key: `saved-${i}`, url: image.url, alt: image.alt })),
   customizationAvailable: product?.customizationAvailable ?? true,
   isFeatured: product?.isFeatured ?? false,
   displayOrder: String(product?.displayOrder ?? 0),
 })
-
-/** Extra pictures shown after the main one. */
-function GalleryEditor({ images, onChange }: { images: ProductImage[]; onChange: (images: ProductImage[]) => void }) {
-  const [choosing, setChoosing] = useState(false)
-  const add = (asset: MediaAsset) => {
-    onChange([...images, { url: asset.url, alt: asset.altText }])
-    setChoosing(false)
-  }
-  const update = (index: number, patch: Partial<ProductImage>) =>
-    onChange(images.map((image, i) => (i === index ? { ...image, ...patch } : image)))
-  const move = (index: number, direction: -1 | 1) => {
-    const next = [...images]
-    const [image] = next.splice(index, 1)
-    next.splice(index + direction, 0, image)
-    onChange(next)
-  }
-
-  return (
-    <fieldset>
-      <legend className={labelClass}>More pictures (optional)</legend>
-      <p className="mt-1 text-sm text-stone-500">Shown after the main picture. Up to 12.</p>
-      {images.length > 0 && (
-        <ol className="mt-3 space-y-3">
-          {images.map((image, i) => (
-            <li key={`${image.url}-${i}`} className="flex flex-wrap items-center gap-3 rounded-md border border-stone-200 p-3">
-              <MediaImage src={image.url} className="h-16 w-20 shrink-0 rounded bg-stone-100 object-cover" />
-              <div className="min-w-48 flex-1">
-                <label htmlFor={`gallery-alt-${i}`} className="text-xs font-medium text-stone-600">
-                  Description of picture {i + 2}
-                </label>
-                <input
-                  id={`gallery-alt-${i}`}
-                  value={image.alt}
-                  maxLength={200}
-                  onChange={(e) => update(i, { alt: e.target.value })}
-                  className={`${fieldClass} mt-1 py-2 text-sm`}
-                />
-              </div>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move picture ${i + 2} earlier`} className={secondaryButtonClass}>
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  onClick={() => move(i, 1)}
-                  disabled={i === images.length - 1}
-                  aria-label={`Move picture ${i + 2} later`}
-                  className={secondaryButtonClass}
-                >
-                  ↓
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onChange(images.filter((_, j) => j !== i))}
-                  aria-label={`Remove picture ${i + 2}`}
-                  className={`${secondaryButtonClass} text-red-700`}
-                >
-                  Remove
-                </button>
-              </div>
-            </li>
-          ))}
-        </ol>
-      )}
-      {images.length < 12 && (
-        <div className="mt-3 flex flex-wrap items-start gap-2">
-          <UploadButton onUploaded={add} multiple label="Upload pictures" />
-          <button type="button" onClick={() => setChoosing(true)} className={secondaryButtonClass}>
-            Choose from library
-          </button>
-        </div>
-      )}
-      <MediaLibraryDialog open={choosing} onClose={() => setChoosing(false)} onSelect={add} />
-    </fieldset>
-  )
-}
 
 function ProductEditor({
   product,
@@ -171,21 +94,38 @@ function ProductEditor({
   onClose: () => void
   onSaved: (product: AdminProduct) => void
 }) {
-  const { values, set, setValues } = useFormState(toForm(product, categories))
+  const { values, set, setValues, dirty } = useFormState(toForm(product, categories))
   // For a new product the web address follows the name until it is edited by hand.
   const [slugTouched, setSlugTouched] = useState(product !== null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [failure, setFailure] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+
+  // Closing with unsaved changes asks first; so does leaving or reloading the page.
+  const requestClose = () => (dirty && !saving ? setConfirmDiscard(true) : onClose())
+  useEffect(() => {
+    if (!dirty) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
 
   const onName = (name: string) =>
     setValues((current) => ({ ...current, name, slug: slugTouched ? current.slug : slugify(name) }))
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    if (saving) return
+    if (values.images.length === 0) {
+      setErrors({ imageUrl: 'Add at least one picture.' })
+      setFailure('Please check the details you entered.')
+      return
+    }
     setSaving(true)
     setErrors({})
     setFailure(null)
+    const [main, ...extras] = values.images
     const number = (v: string) => (v.trim() === '' ? null : Number(v))
     const body = {
       name: values.name,
@@ -203,9 +143,9 @@ function ProductEditor({
         .filter(Boolean),
       price: number(values.price),
       offerPrice: number(values.offerPrice),
-      imageUrl: values.imageUrl,
-      imageAlt: values.imageAlt,
-      additionalImages: values.gallery,
+      imageUrl: main.url,
+      imageAlt: main.alt,
+      additionalImages: extras.map(({ url, alt }) => ({ url, alt })),
       customizationAvailable: values.customizationAvailable,
       isFeatured: values.isFeatured,
       displayOrder: number(values.displayOrder) ?? 0,
@@ -225,7 +165,7 @@ function ProductEditor({
   }
 
   return (
-    <Dialog open onClose={onClose} title={product ? `Edit “${product.name}”` : 'Add a product'} width="max-w-3xl">
+    <Dialog open guarded onClose={requestClose} title={product ? `Edit “${product.name}”` : 'Add a product'} width="max-w-3xl">
       <MediaLibraryList />
       <form onSubmit={onSubmit} className="space-y-6" noValidate>
         {failure && <Notice kind="error">{failure}</Notice>}
@@ -265,26 +205,11 @@ function ProductEditor({
           />
         </div>
 
-        <MediaPicker
-          id="product-image"
-          label="Main picture"
-          value={values.imageUrl}
-          onChange={set('imageUrl')}
-          onAltSuggested={(alt) => !values.imageAlt && set('imageAlt')(alt)}
-          error={errors.imageUrl}
-          required
+        <ProductGallery
+          images={values.images}
+          onChange={(update) => setValues((current) => ({ ...current, images: update(current.images) }))}
+          errors={errors}
         />
-        <TextInput
-          id="product-image-alt"
-          label="Description of the main picture (for people who cannot see it)"
-          value={values.imageAlt}
-          onChange={set('imageAlt')}
-          error={errors.imageAlt}
-          maxLength={200}
-        />
-
-        <GalleryEditor images={values.gallery} onChange={set('gallery')} />
-        {errors.additionalImages && <p className="text-sm text-red-700">{errors.additionalImages}</p>}
 
         <TextInput
           id="product-short"
@@ -366,7 +291,7 @@ function ProductEditor({
         </div>
 
         <div className="flex flex-wrap justify-end gap-3 border-t border-stone-200 pt-5">
-          <button type="button" onClick={onClose} className={secondaryButtonClass}>
+          <button type="button" onClick={requestClose} disabled={saving} className={secondaryButtonClass}>
             Cancel
           </button>
           <button type="submit" disabled={saving} className={primaryButtonClass}>
@@ -374,6 +299,19 @@ function ProductEditor({
           </button>
         </div>
       </form>
+
+      <ConfirmDialog
+        open={confirmDiscard}
+        title="Discard unsaved changes?"
+        confirmLabel="Discard changes"
+        onCancel={() => setConfirmDiscard(false)}
+        onConfirm={onClose}
+      >
+        <p>
+          Your changes to this product, including any picture changes, have not been saved. Pictures you uploaded stay
+          in the media library.
+        </p>
+      </ConfirmDialog>
     </Dialog>
   )
 }
@@ -546,7 +484,7 @@ export function ProductsPage() {
           <ul className="space-y-3" aria-busy={loading || busy}>
             {products.map((product) => (
               <li key={product.id} className={`${cardClass} flex flex-wrap items-center gap-4 p-4`}>
-                <img src={product.imageUrl} alt="" loading="lazy" className="h-20 w-20 shrink-0 rounded-md bg-stone-100 object-cover" />
+                <MediaImage src={product.imageUrl} loading="lazy" className="h-20 w-20 shrink-0 rounded-md bg-stone-100 object-cover" />
                 <div className="min-w-48 flex-1">
                   <p className="font-medium text-stone-900">{product.name}</p>
                   <p className="text-sm text-stone-500">

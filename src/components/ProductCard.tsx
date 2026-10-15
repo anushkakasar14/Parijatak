@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { Product } from '../types'
 import { Skeleton } from './Content'
 import { ArrowRightIcon } from './Icons'
@@ -21,18 +22,26 @@ export function ProductCard({
 }: ProductCardProps) {
   const openProduct = useProductModal()
   const open = () => openProduct(product)
+  const [failed, setFailed] = useState(false)
 
   return (
     <article className={`group ${className}`}>
       {/* Mouse convenience only — the button below is the keyboard/screen-reader control */}
       <div className={`${aspect} cursor-pointer overflow-hidden bg-cream`} onClick={open}>
-        <img
-          src={product.imageUrl}
-          alt={product.imageAlt ?? product.name}
-          loading="lazy"
-          decoding="async"
-          className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
-        />
+        {failed ? (
+          <div className="grid h-full w-full place-items-center text-sm text-muted">
+            <span>{product.name} — image unavailable</span>
+          </div>
+        ) : (
+          <img
+            src={product.imageUrl}
+            alt={product.imageAlt ?? product.name}
+            loading="lazy"
+            decoding="async"
+            onError={() => setFailed(true)}
+            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+          />
+        )}
       </div>
 
       <div className="mt-5">

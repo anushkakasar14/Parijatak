@@ -117,7 +117,11 @@ after(async () => {
 
 beforeEach(async () => {
   await sql(`DELETE FROM products WHERE id NOT IN ('bed-linens', 'cushion-covers', 'throws')`)
-  await sql(`UPDATE products SET status = 'published', image_url = '/media/shoot-bench.jpg', category_id = id`)
+  await sql(`UPDATE products SET status = 'published', image_url = '/media/shoot-bench.jpg', additional_images = '[]', category_id = id`)
+  // The gallery table follows the picture columns reset above.
+  await sql(`DELETE FROM product_images`)
+  await sql(`INSERT INTO product_images (id, product_id, url, position, is_primary)
+             SELECT gen_random_uuid(), id, image_url, 0, TRUE FROM products`)
   await sql(`DELETE FROM categories WHERE id NOT IN ('bed-linens', 'cushion-covers', 'throws')`)
   await sql(`UPDATE categories SET is_active = TRUE, description = NULL`)
   await sql(`DELETE FROM media_assets`)

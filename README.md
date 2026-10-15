@@ -155,7 +155,9 @@ Migration 3 keeps existing data: products that were active become `published`, i
 | Table | Holds |
 | --- | --- |
 | `products` | Name, unique slug, category, short and full description, material, craftsmanship, dimensions, variants, price and offer price, main image with alt text, extra images, customization and featured flags, display order, status |
-| `categories` | Product categories and their order |
+| `product_images` | Each product's pictures: address, the uploaded file it comes from (if any), description, position, and which one is the primary (collection card) picture. At most one primary per product and one picture per position, enforced by the database. The `products` columns `image_url`, `image_alt` and `additional_images` are kept as a copy, updated in the same transaction |
+| `media_assets` | Uploaded images: file name, type, size, dimensions, description. A file used by a product gallery cannot be deleted |
+| `categories` | Product categories, description, visibility and order |
 | `enquiries` | Customer enquiries: contact details, type, message, related product, source, status, internal notes, Google Sheets sync time and last sync error |
 | `homepage_slides` | Carousel slides: image or video, poster, alt text, heading, description, button, order, on/off switch, status |
 | `page_sections` | The editable text blocks of the Home, About and Collection pages |
@@ -295,8 +297,9 @@ The admin panel lives at `/admin`. Administrators sign in with an email and pass
 | --- | --- |
 | Overview | Enquiry counts by status (including follow-up required) for any date range, product and offer counts, recent changes, quick actions, and a live Google Sheets connection check with a retry button |
 | Enquiries | List with search, filters (status, type, product/general, sheet status, received dates in India time), paging, CSV download of the filtered list, full details with copy buttons, status changes and internal notes |
-| Products | View-only list of published products |
-| Homepage carousel, Offers & banners, Homepage & About, Contact & social | **Screens not built yet** — each page says so. The API behind them exists and is tested (see [Admin content endpoints](#admin-content-endpoints)) |
+| Products | Search, filters, sorting and paging; add, edit, duplicate, publish, archive, delete. Each product has a picture gallery: upload several at once (photos are shrunk to at most 2,400 px in the browser first, and files named 1, 1.1, 1.2 keep that order), choose from the library, replace, remove (with confirmation), reorder by drag-and-drop or arrows, choose the main picture, and describe each. Nothing changes until Save; closing with unsaved changes asks first |
+| Categories, Media library | Categories with visibility and product counts; uploaded images with size, dimensions and descriptions. Images in use cannot be deleted |
+| Homepage carousel, Offers & banners, Homepage & About, Contact & social | Content screens, with the same image picker |
 | Account | Who is signed in, and change password |
 
 The panel adapts to phones: the sidebar becomes a slide-in menu and the enquiry table becomes a list of cards. A `viewer` account sees everything but gets no controls that change data; the server refuses such requests regardless.
@@ -397,6 +400,7 @@ All require a signed-in administrator; changing data also needs the `admin` role
 | Resource | Endpoints under `/api/admin` |
 | --- | --- |
 | Products | `GET /products` (all statuses; `status`, `categoryId`, `search`, `limit`, `offset`), `GET /products/:id`, `POST /products`, `PATCH /products/:id`, `DELETE /products/:id` |
+| Product pictures | `GET /products/:id/images` (in order, with ids), `POST /products/:id/images` (`url`, `altText`, `makePrimary`; added at the end), `PATCH /products/:id/images/:imageId` (new `altText`, or a replacement `url` in the same place), `POST /products/:id/images/:imageId/primary`, `PUT /products/:id/images/order` (`imageIds`: every picture exactly once), `DELETE /products/:id/images/:imageId` (refused for the last picture). Each runs in one transaction with the product locked. Saving a product with `imageUrl` + `additionalImages` replaces its gallery in the same way |
 | Categories | `GET /categories`, `POST /categories`, `PATCH /categories/:id`, `DELETE /categories/:id` (refused while products use it) |
 | Carousel slides | `GET /slides`, `POST /slides`, `PATCH /slides/:id`, `DELETE /slides/:id` |
 | Page text | `GET /sections` (optional `page`), `PATCH /sections/:id` |
@@ -569,8 +573,7 @@ WhatsApp remains a frontend channel: "Enquire on WhatsApp" opens a `wa.me` link 
 
 ## Known limitations and outstanding work
 
-- **Admin screens for content are not built.** Products, carousel, offers, page text and contact details can be changed through the API but not yet through the admin panel's pages.
-- **No media uploads.** Images and videos are files in `public/media`, referenced by path; adding one needs a code deploy. Uploads require choosing persistent object storage first (Netlify Blobs is the suggested option).
+- **Videos cannot be uploaded** through the admin (a Netlify function accepts about 6 MB per request; images are limited to 4 MB after shrinking). Videos are files in `public/media`, added with a deploy. Product galleries hold images only.
 - **No blog.** Nothing in the project uses one; it can be added as a new migration when wanted.
 - **Google Sheets has never been run against a real sheet** from this codebase; only its failure handling is verified.
 - **Rate limits are approximate on Netlify** (counted per function instance). Sign-in throttling and duplicate protection are exact because they live in the database.

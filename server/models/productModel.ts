@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { getDb } from '../config/database.ts'
 import { buildUpdate, toIso, translateConstraintError } from '../utils/sql.ts'
+import { productImageModel } from './productImageModel.ts'
 
 export const publicationStatuses = ['draft', 'published', 'archived'] as const
 export type PublicationStatus = (typeof publicationStatuses)[number]
@@ -258,36 +259,42 @@ export const productModel = {
     const db = await getDb()
     const id = randomUUID()
     try {
-      // `category` and `is_active` are legacy columns, kept in step for older deployments.
-      await db.query(
-        `INSERT INTO products
-           (id, name, slug, category, category_id, short_description, description, material,
-            craftsmanship, dimensions, variants, price, offer_price, image_url, image_alt,
-            additional_images, customization_available, is_featured, display_order, status, is_active)
-         VALUES ($1, $2, $3, (SELECT name FROM categories WHERE id = $4), $4, $5, $6, $7, $8, $9,
-                 $10::jsonb, $11, $12, $13, $14, $15::jsonb, $16, $17, $18, $19, $19 = 'published')`,
-        [
-          id,
-          input.name,
-          input.slug,
-          input.categoryId,
-          input.shortDescription,
-          input.description,
-          input.material,
-          input.craftsmanship,
-          input.dimensions,
-          JSON.stringify(input.variants),
-          input.price,
-          input.offerPrice,
-          input.imageUrl,
-          input.imageAlt,
-          JSON.stringify(input.additionalImages),
-          input.customizationAvailable,
-          input.isFeatured,
-          input.displayOrder,
-          input.status,
-        ],
-      )
+      await db.transaction(async (tx) => {
+        // `category` and `is_active` are legacy columns, kept in step for older deployments.
+        await tx.query(
+          `INSERT INTO products
+             (id, name, slug, category, category_id, short_description, description, material,
+              craftsmanship, dimensions, variants, price, offer_price, image_url, image_alt,
+              additional_images, customization_available, is_featured, display_order, status, is_active)
+           VALUES ($1, $2, $3, (SELECT name FROM categories WHERE id = $4), $4, $5, $6, $7, $8, $9,
+                   $10::jsonb, $11, $12, $13, $14, $15::jsonb, $16, $17, $18, $19, $19 = 'published')`,
+          [
+            id,
+            input.name,
+            input.slug,
+            input.categoryId,
+            input.shortDescription,
+            input.description,
+            input.material,
+            input.craftsmanship,
+            input.dimensions,
+            JSON.stringify(input.variants),
+            input.price,
+            input.offerPrice,
+            input.imageUrl,
+            input.imageAlt,
+            JSON.stringify(input.additionalImages),
+            input.customizationAvailable,
+            input.isFeatured,
+            input.displayOrder,
+            input.status,
+          ],
+        )
+        await productImageModel.replaceAll(tx, id, [
+          { url: input.imageUrl, alt: input.imageAlt ?? '' },
+          ...input.additionalImages,
+        ])
+      })
     } catch (err) {
       translateConstraintError(err, constraintMessages)
     }
@@ -299,22 +306,36 @@ export const productModel = {
     if (!assignments) return this.findById(id)
 
     const db = await getDb()
+    const touchesImages =
+      patch.imageUrl !== undefined || patch.imageAlt !== undefined || patch.additionalImages !== undefined
     try {
-      const result = await db.query(
-        `UPDATE products SET ${assignments}, updated_at = now()
-          WHERE id = $${params.length + 1}
-          RETURNING id`,
-        [...params, id],
-      )
-      if (!result.rows.length) return null
-      // `category` and `is_active` are legacy columns, kept in step for older deployments.
-      await db.query(
-        `UPDATE products
-            SET category  = COALESCE((SELECT name FROM categories WHERE id = products.category_id), category),
-                is_active = (status = 'published')
-          WHERE id = $1`,
-        [id],
-      )
+      const found = await db.transaction(async (tx) => {
+        const result = await tx.query(
+          `UPDATE products SET ${assignments}, updated_at = now()
+            WHERE id = $${params.length + 1}
+            RETURNING id`,
+          [...params, id],
+        )
+        if (!result.rows.length) return false
+        // `category` and `is_active` are legacy columns, kept in step for older deployments.
+        await tx.query(
+          `UPDATE products
+              SET category  = COALESCE((SELECT name FROM categories WHERE id = products.category_id), category),
+                  is_active = (status = 'published')
+            WHERE id = $1`,
+          [id],
+        )
+        // The product form sends the main and extra pictures as columns: bring the gallery in line.
+        if (touchesImages) {
+          const { rows } = await tx.query<{ image_url: string; image_alt: string | null; additional_images: unknown[] }>(
+            'SELECT image_url, image_alt, additional_images FROM products WHERE id = $1',
+            [id],
+          )
+          await productImageModel.replaceAll(tx, id, productImageModel.fromProductColumns(rows[0]))
+        }
+        return true
+      })
+      if (!found) return null
     } catch (err) {
       translateConstraintError(err, constraintMessages)
     }
@@ -337,17 +358,20 @@ export const productModel = {
     for (let n = 2; used.has(slug); n++) slug = `${base}-${n}`
 
     const newId = randomUUID()
-    await db.query(
-      `INSERT INTO products
-         (id, name, slug, category, category_id, short_description, description, material, craftsmanship,
-          dimensions, variants, price, offer_price, image_url, image_alt, additional_images,
-          customization_available, is_featured, display_order, status, is_active)
-       SELECT $1, left(name || ' (copy)', 120), $2, category, category_id, short_description, description,
-              material, craftsmanship, dimensions, variants, price, offer_price, image_url, image_alt,
-              additional_images, customization_available, FALSE, display_order, 'draft', FALSE
-         FROM products WHERE id = $3`,
-      [newId, slug, id],
-    )
+    await db.transaction(async (tx) => {
+      await tx.query(
+        `INSERT INTO products
+           (id, name, slug, category, category_id, short_description, description, material, craftsmanship,
+            dimensions, variants, price, offer_price, image_url, image_alt, additional_images,
+            customization_available, is_featured, display_order, status, is_active)
+         SELECT $1, left(name || ' (copy)', 120), $2, category, category_id, short_description, description,
+                material, craftsmanship, dimensions, variants, price, offer_price, image_url, image_alt,
+                additional_images, customization_available, FALSE, display_order, 'draft', FALSE
+           FROM products WHERE id = $3`,
+        [newId, slug, id],
+      )
+      await productImageModel.copy(tx, id, newId)
+    })
     return this.findById(newId)
   },
 

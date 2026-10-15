@@ -259,4 +259,49 @@ export const migrations: Migration[] = [
          CHECK (status IN ('new', 'contacted', 'follow_up', 'converted', 'closed'))`,
     ],
   },
+  {
+    version: 6,
+    name: 'product_images',
+    // Additive: one row per product picture. Existing pictures are copied in; the old
+    // columns (image_url, image_alt, additional_images) stay and are kept in step with
+    // this table, so everything that reads them keeps working.
+    statements: [
+      `CREATE TABLE product_images (
+        id              UUID PRIMARY KEY,
+        product_id      TEXT NOT NULL REFERENCES products(id) ON UPDATE CASCADE ON DELETE CASCADE,
+        -- The uploaded file, when the picture is one. A file in use cannot be deleted.
+        media_asset_id  UUID REFERENCES media_assets(id) ON DELETE RESTRICT,
+        url             TEXT NOT NULL CHECK (url <> ''),
+        alt_text        TEXT NOT NULL DEFAULT '',
+        position        INTEGER NOT NULL CHECK (position >= 0),
+        is_primary      BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+        -- Checked at commit, so a reorder can swap positions inside one transaction.
+        CONSTRAINT product_images_position_unique UNIQUE (product_id, position) DEFERRABLE INITIALLY DEFERRED
+      )`,
+      // At most one primary picture per product.
+      `CREATE UNIQUE INDEX product_images_one_primary ON product_images (product_id) WHERE is_primary`,
+      `CREATE INDEX product_images_media_idx ON product_images (media_asset_id)`,
+
+      // Copy the main pictures (position 0, primary)…
+      `INSERT INTO product_images (id, product_id, media_asset_id, url, alt_text, position, is_primary, created_at)
+       SELECT gen_random_uuid(), p.id, m.id, p.image_url, COALESCE(p.image_alt, ''), 0, TRUE, p.created_at
+         FROM products p
+         LEFT JOIN media_assets m ON m.url = p.image_url
+        WHERE p.image_url <> ''`,
+      // …then the extra pictures in their saved order. Older rows stored bare addresses.
+      `INSERT INTO product_images (id, product_id, media_asset_id, url, alt_text, position, is_primary, created_at)
+       SELECT gen_random_uuid(), p.id, m.id, e.url, e.alt, e.ord::int, FALSE, p.created_at
+         FROM products p
+        CROSS JOIN LATERAL (
+          SELECT CASE WHEN jsonb_typeof(x.value) = 'string' THEN x.value #>> '{}' ELSE x.value ->> 'url' END AS url,
+                 CASE WHEN jsonb_typeof(x.value) = 'string' THEN '' ELSE COALESCE(x.value ->> 'alt', '') END AS alt,
+                 x.ord
+            FROM jsonb_array_elements(p.additional_images) WITH ORDINALITY AS x(value, ord)
+        ) e
+         LEFT JOIN media_assets m ON m.url = e.url
+        WHERE COALESCE(e.url, '') <> ''`,
+    ],
+  },
 ]

@@ -115,7 +115,16 @@ export const mediaController = {
       throw new HttpError(409, `This image is still used — ${usedIn.slice(0, 3).join('; ')}${usedIn.length > 3 ? '…' : ''}. Replace it there first.`)
     }
 
-    await mediaModel.delete(id)
+    try {
+      await mediaModel.delete(id)
+    } catch (err) {
+      // A product gallery took the image between the check above and this delete.
+      // ON DELETE RESTRICT reports 23001; a plain foreign key 23503.
+      if (['23001', '23503'].includes((err as { code?: string }).code ?? '')) {
+        throw new HttpError(409, 'This image is still used by a product. Replace it there first.')
+      }
+      throw err
+    }
     await getMediaStorage()
       .delete(asset.storageKey)
       .catch((err) => logger.warn('Stored file could not be removed', { error: errorMessage(err) }))

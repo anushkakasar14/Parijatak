@@ -300,3 +300,35 @@ export const settingKeyParam = z.object({
 })
 /** Settings that visitors may see. (All of them, today — listed explicitly on purpose.) */
 export const publicSettingKeys: SettingKey[] = ['brand', 'contact', 'social', 'footer', 'gallery']
+
+// ── Product pictures ────────────────────────────────────────────────────────────
+
+/** Most pictures a product can have: the main one and twelve more. */
+export const MAX_PRODUCT_IMAGES = 13
+
+const imageAlt = z.string().transform(sanitizeLine).pipe(z.string().max(200, 'Too long'))
+
+export const productImageParams = z.object({
+  id: z.string().regex(/^[a-zA-Z0-9.-]{1,64}$/, 'Invalid id'),
+  imageId: z.uuid('Invalid picture id'),
+})
+
+export const addProductImageSchema = z.strictObject({
+  url,
+  altText: imageAlt.default(''),
+  /** Make the new picture the one shown on the collection page. */
+  makePrimary: z.boolean().default(false),
+})
+
+/** Change the description, or replace the picture (same place in the gallery), or both. */
+export const updateProductImageSchema = z
+  .strictObject({ url: url.optional(), altText: imageAlt.optional() })
+  .refine((v) => v.url !== undefined || v.altText !== undefined, { message: 'Nothing to update', path: ['altText'] })
+
+export const reorderProductImagesSchema = z.strictObject({
+  imageIds: z
+    .array(z.uuid('Invalid picture id'))
+    .min(1, 'List the pictures in their new order')
+    .max(MAX_PRODUCT_IMAGES)
+    .refine((ids) => new Set(ids).size === ids.length, 'Each picture may appear only once'),
+})
