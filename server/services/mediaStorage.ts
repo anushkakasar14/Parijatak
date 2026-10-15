@@ -21,8 +21,9 @@ export interface MediaStorage {
 const STORE_NAME = 'parijatak-media'
 
 function netlifyBlobs(): MediaStorage {
-  // Strong consistency: an image is readable the moment its upload is reported as done.
-  const store = () => getStore({ name: STORE_NAME, consistency: 'strong' })
+  // Default (eventual) consistency. Strong reads need an address that functions in this
+  // format are not given, so a new upload can take a few seconds to be readable everywhere.
+  const store = () => getStore(STORE_NAME)
   return {
     kind: 'netlify-blobs',
     async put(key, data, contentType) {

@@ -128,7 +128,11 @@ export const mediaController = {
     if (!parsed.success) throw new HttpError(404, 'Not found')
 
     const file = await getMediaStorage().get(parsed.data.key)
-    if (!file) throw new HttpError(404, 'Not found')
+    if (!file) {
+      // A brand-new upload may not have reached every location yet: never cache the miss.
+      res.set('Cache-Control', 'no-store')
+      throw new HttpError(404, 'Not found')
+    }
 
     res.set({
       'Content-Type': file.contentType,

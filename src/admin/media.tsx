@@ -7,6 +7,41 @@ import { useApi, useDebounced } from './hooks'
 import type { MediaAsset, Paginated } from './types'
 import { fieldClass, labelClass, secondaryButtonClass } from './ui'
 
+/**
+ * An image that tries again for a few seconds before giving up. On the live site a new
+ * upload can take a moment to become readable everywhere, so a first miss is expected.
+ * Only uploaded files (/api/media/…) are retried.
+ */
+export function MediaImage({
+  src,
+  className,
+  alt = '',
+  loading,
+  onFailed,
+}: {
+  src: string
+  className?: string
+  alt?: string
+  loading?: 'lazy' | 'eager'
+  onFailed?: () => void
+}) {
+  const [attempt, setAttempt] = useState({ src, n: 0 })
+  const n = attempt.src === src ? attempt.n : 0
+  const retryable = src.startsWith('/api/media/')
+  return (
+    <img
+      src={n ? `${src}?attempt=${n}` : src}
+      alt={alt}
+      loading={loading}
+      className={className}
+      onError={() => {
+        if (retryable && n < 8) window.setTimeout(() => setAttempt({ src, n: n + 1 }), 1500)
+        else onFailed?.()
+      }}
+    />
+  )
+}
+
 /** Uploading: the limits the server enforces, repeated here only to fail fast with a clear message. */
 export const MAX_UPLOAD_MB = 4
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp']
@@ -172,7 +207,7 @@ function LibraryBrowser({ onSelect }: { onSelect: (asset: MediaAsset) => void })
                 onClick={() => onSelect(asset)}
                 className="group block w-full overflow-hidden rounded-md border border-stone-200 bg-white text-left hover:border-maroon focus-visible:border-maroon"
               >
-                <img src={asset.url} alt="" loading="lazy" className="aspect-square w-full bg-stone-100 object-cover" />
+                <MediaImage src={asset.url} loading="lazy" className="aspect-square w-full bg-stone-100 object-cover" />
                 <span className="block truncate px-2 pt-1.5 text-sm text-stone-800">{asset.filename}</span>
                 <span className="block px-2 pb-1.5 text-xs text-stone-500">
                   {asset.width && asset.height ? `${asset.width} × ${asset.height} · ` : ''}
@@ -235,7 +270,7 @@ export function MediaPicker({
           ) : broken === value ? (
             <span className="px-2 text-red-700">No file was found at this address.</span>
           ) : (
-            <img src={value} alt="" className="h-full w-full object-cover" onError={() => setBroken(value)} />
+            <MediaImage src={value} className="h-full w-full object-cover" onFailed={() => setBroken(value)} />
           )}
         </div>
         <div className="min-w-0 flex-1 space-y-2">

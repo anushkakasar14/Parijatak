@@ -17,7 +17,7 @@ import {
 } from '../components'
 import { Checkbox, MediaLibraryList, SelectInput, TextArea, TextInput, useFormState } from '../forms'
 import { useApi, useDebounced } from '../hooks'
-import { MediaLibraryDialog, MediaPicker, UploadButton } from '../media'
+import { MediaImage, MediaLibraryDialog, MediaPicker, UploadButton } from '../media'
 import { statusOptions } from '../types'
 import type { AdminProduct, Category, MediaAsset, Paginated, ProductImage, PublicationStatus } from '../types'
 import { cardClass, fieldClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../ui'
@@ -108,7 +108,7 @@ function GalleryEditor({ images, onChange }: { images: ProductImage[]; onChange:
         <ol className="mt-3 space-y-3">
           {images.map((image, i) => (
             <li key={`${image.url}-${i}`} className="flex flex-wrap items-center gap-3 rounded-md border border-stone-200 p-3">
-              <img src={image.url} alt="" className="h-16 w-20 shrink-0 rounded bg-stone-100 object-cover" />
+              <MediaImage src={image.url} className="h-16 w-20 shrink-0 rounded bg-stone-100 object-cover" />
               <div className="min-w-48 flex-1">
                 <label htmlFor={`gallery-alt-${i}`} className="text-xs font-medium text-stone-600">
                   Description of picture {i + 2}

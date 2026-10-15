@@ -5,7 +5,7 @@ import { useAuth } from '../AuthContext'
 import { ConfirmDialog, Dialog, EmptyState, ErrorNotice, LoadingBlock, Notice, PageHeader, formatDate } from '../components'
 import { TextInput } from '../forms'
 import { useApi, useDebounced } from '../hooks'
-import { MAX_UPLOAD_MB, UploadButton, formatBytes } from '../media'
+import { MAX_UPLOAD_MB, MediaImage, UploadButton, formatBytes } from '../media'
 import type { MediaAsset, Paginated } from '../types'
 import { fieldClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../ui'
 
@@ -55,7 +55,7 @@ function AssetDetails({
 
   return (
     <Dialog open onClose={onClose} title={asset.filename} width="max-w-2xl">
-      <img src={asset.url} alt={asset.altText} className="max-h-[50svh] w-full rounded-md bg-stone-100 object-contain" />
+      <MediaImage src={asset.url} alt={asset.altText} className="max-h-[50svh] w-full rounded-md bg-stone-100 object-contain" />
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
         <div>
           <dt className="text-stone-500">Size</dt>
@@ -212,7 +212,7 @@ export function MediaPage() {
                   onClick={() => setOpen(asset)}
                   className="block w-full overflow-hidden rounded-lg border border-stone-200 bg-white text-left hover:border-maroon"
                 >
-                  <img src={asset.url} alt="" loading="lazy" className="aspect-square w-full bg-stone-100 object-cover" />
+                  <MediaImage src={asset.url} loading="lazy" className="aspect-square w-full bg-stone-100 object-cover" />
                   <span className="block truncate px-2.5 pt-2 text-sm text-stone-800">{asset.filename}</span>
                   <span className="block px-2.5 pb-2 text-xs text-stone-500">
                     {asset.width && asset.height ? `${asset.width} × ${asset.height} · ` : ''}
