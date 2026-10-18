@@ -304,4 +304,17 @@ export const migrations: Migration[] = [
         WHERE COALESCE(e.url, '') <> ''`,
     ],
   },
+  {
+    version: 7,
+    name: 'integration_status',
+    // Additive: when an outside service last used an integration (for example, when the
+    // Google Sheet last read the enquiries feed), so the admin shows facts, not guesses.
+    statements: [
+      `CREATE TABLE integration_status (
+        name             TEXT PRIMARY KEY,
+        last_success_at  TIMESTAMPTZ,
+        detail           TEXT
+      )`,
+    ],
+  },
 ]

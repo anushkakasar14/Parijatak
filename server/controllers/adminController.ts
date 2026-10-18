@@ -5,6 +5,9 @@ import { enquiryModel } from '../models/enquiryModel.ts'
 import { productModel } from '../models/productModel.ts'
 import { googleSheetsService } from '../services/googleSheetsService.ts'
 import { indiaDayRange } from '../utils/indiaDate.ts'
+import { env } from '../config/env.ts'
+import { integrationStatusModel } from '../models/integrationStatusModel.ts'
+import { SHEETS_FEED } from './sheetsFeedController.ts'
 
 const rangeSchema = z
   .object({
@@ -42,6 +45,8 @@ export const adminController = {
           mode: googleSheetsService.mode(),
           // Waiting enquiries of any date, not only those in the chosen range.
           pending: range.from || range.to ? (await enquiryModel.stats()).unsynced : enquiries.unsynced,
+          // The formula feed: on or off, and when Google last actually read it.
+          feed: { enabled: Boolean(env.GOOGLE_SHEETS_FEED_KEY), ...(await integrationStatusModel.get(SHEETS_FEED)) },
         },
         recentEnquiries: recent.enquiries,
         recentProducts: recentProducts.products.map(({ id, name, status, imageUrl, updatedAt, category }) => ({

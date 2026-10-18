@@ -53,7 +53,13 @@ export interface Overview {
   }
   products: { total: number; active: number; published: number; draft: number; archived: number }
   offers: { active: number; scheduled: number }
-  googleSheets: { configured: boolean; mode: 'apps-script' | 'service-account' | null; pending: number }
+  googleSheets: {
+    configured: boolean
+    mode: 'apps-script' | 'service-account' | null
+    pending: number
+    /** The formula feed the sheet reads; lastSuccessAt is when Google last actually read it. */
+    feed: { enabled: boolean; lastSuccessAt: string | null; detail: string | null }
+  }
   recentEnquiries: Enquiry[]
   recentProducts: {
     id: string

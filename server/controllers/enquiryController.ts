@@ -2,6 +2,7 @@ import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { enquiryModel } from '../models/enquiryModel.ts'
 import { enquiryService } from '../services/enquiryService.ts'
+import { googleSheetsService } from '../services/googleSheetsService.ts'
 import { toCsv } from '../utils/csv.ts'
 import { HttpError } from '../utils/httpError.ts'
 import { formatIndiaDateTime, indiaDayRange } from '../utils/indiaDate.ts'
@@ -16,7 +17,7 @@ const isUuid = (value: string) => z.uuid().safeParse(value).success
 /** Most enquiries a single CSV export holds. */
 const EXPORT_LIMIT = 5000
 
-const statusLabels: Record<string, string> = {
+export const enquiryStatusLabels: Record<string, string> = {
   new: 'New',
   contacted: 'Contacted',
   follow_up: 'Follow-up required',
@@ -53,6 +54,8 @@ export const enquiryController = {
       success: true,
       data: enquiries,
       pagination: { total, limit: filters.limit, offset: filters.offset },
+      // Whether enquiries are pushed to a sheet (and so have a "sent to sheet" state at all).
+      meta: { sheetsPush: googleSheetsService.isConfigured() },
     })
   },
 
@@ -71,7 +74,7 @@ export const enquiryController = {
         e.inquiryType,
         e.productName,
         e.message,
-        statusLabels[e.status] ?? e.status,
+        enquiryStatusLabels[e.status] ?? e.status,
         e.internalNotes,
         e.source,
         e.sheetSyncedAt ? 'Yes' : 'No',

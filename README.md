@@ -108,6 +108,7 @@ Set these in `.env` locally and in **Netlify → Site configuration → Environm
 | `GOOGLE_SHEETS_TAB` | no | first tab | Name of the tab to write to |
 | `GOOGLE_SHEETS_WEBHOOK_URL` | for Sheets via Apps Script | — | The Apps Script web app address (ends in `/exec`). Replaces the three service-account variables |
 | `GOOGLE_SHEETS_WEBHOOK_TOKEN` | with the URL | — | Shared secret, the same as `TOKEN` in the script (24+ characters) |
+| `GOOGLE_SHEETS_FEED_KEY` | for the formula feed | — | Turns on the read-only enquiries feed for a sheet formula. Long and random (32+ characters); anyone with it can read the enquiries |
 | `ADMIN_SESSION_IDLE_MINUTES` | no | `30` | Minutes of inactivity before an admin is signed out |
 | `ADMIN_SESSION_MAX_HOURS` | no | `12` | Maximum length of an admin session |
 | `ADMIN_API_KEY` | no | — | Legacy shared key for scripts (see [Legacy API key](#legacy-api-key)). Minimum 24 characters. Leave unset to disable |
@@ -196,7 +197,14 @@ DELETE FROM schema_migrations WHERE version = 2;
 
 ## Google Sheets setup
 
-Optional. With no Google variables set, the API simply skips the sheet. There are two ways to connect it; the first is simpler.
+Optional. With no Google variables set, the API simply skips the sheet. There are three ways to connect it; the first is the simplest.
+
+### Option 0: one formula (no Apps Script, no Google Cloud)
+
+1. Set `GOOGLE_SHEETS_FEED_KEY` in Netlify to a long random value (marked secret) and redeploy.
+2. In cell A1 of the sheet, enter `=IMPORTDATA("https://<your-site>/api/enquiries/feed.csv?key=<the key>")`.
+
+The sheet then shows every enquiry (oldest first, with its current status) and Google refreshes it by itself, roughly every hour. The feed is read-only, answers "not found" to a wrong key, is never cached or indexed, and keeps formula-like text as plain text. The admin Overview shows when Google last read it. Anyone who can see the formula can read the enquiries, so keep the sheet's sharing **Restricted**; to revoke access, change the key. Notes typed into the imported columns would be overwritten by the next refresh, so add your own columns to the right of the data, or work in another tab.
 
 ### Option A: Apps Script (no Google Cloud project)
 

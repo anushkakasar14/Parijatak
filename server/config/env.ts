@@ -65,6 +65,14 @@ const schema = z.object({
     message: 'GOOGLE_SHEETS_WEBHOOK_TOKEN must be at least 24 characters',
   }),
 
+  /**
+   * Turns on the read-only enquiries feed for a Google Sheet formula:
+   * =IMPORTDATA("https://<site>/api/enquiries/feed.csv?key=<this key>"). Long and random.
+   */
+  GOOGLE_SHEETS_FEED_KEY: optional.refine((v) => !v || v.length >= 32, {
+    message: 'GOOGLE_SHEETS_FEED_KEY must be at least 32 characters',
+  }),
+
   WHATSAPP_NUMBER: z
     .string()
     .trim()

@@ -17,6 +17,8 @@ import {
 import { useApi, useDebounced } from '../hooks'
 import { enquiryStatusLabels, enquiryStatuses, inquiryTypes } from '../types'
 import type { Enquiry, EnquiryStatus, Paginated } from '../types'
+
+type EnquiryList = Paginated<Enquiry> & { meta?: { sheetsPush: boolean } }
 import { fieldClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../ui'
 
 const PAGE_SIZE = 20
@@ -44,10 +46,13 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 
 function EnquiryDetail({
   enquiry,
+  sheetsPush,
   onClose,
   onUpdated,
 }: {
   enquiry: Enquiry
+  /** Whether enquiries are pushed to a sheet, so a "copied to the sheet" state exists. */
+  sheetsPush: boolean
   onClose: () => void
   onUpdated: (updated: Enquiry) => void
 }) {
@@ -142,7 +147,7 @@ function EnquiryDetail({
             {enquiry.message}
           </dd>
         </div>
-        <div className="sm:col-span-2">
+        <div className={sheetsPush ? 'sm:col-span-2' : 'hidden'}>
           <dt className="text-sm text-stone-500">Google Sheets</dt>
           <dd>
             {enquiry.sheetSyncedAt ? (
@@ -250,10 +255,12 @@ export function EnquiriesPage() {
     if (value) query.set(key, value)
   }
 
-  const { data, error, loading, reload, setData } = useApi<Paginated<Enquiry>>(`/enquiries?${query}`, {
+  const { data, error, loading, reload, setData } = useApi<EnquiryList>(`/enquiries?${query}`, {
     raw: true,
   })
 
+  // Without a sheet that enquiries are pushed to, there is no "sent to the sheet" state to show.
+  const sheetsPush = data?.meta?.sheetsPush ?? true
   const hasFilters = FILTER_KEYS.some((key) => params.get(key))
   // The same filters, without paging: the file holds every matching enquiry (up to 5,000).
   const exportQuery = new URLSearchParams(
@@ -355,7 +362,7 @@ export function EnquiriesPage() {
             <option value="false">General only</option>
           </select>
         </div>
-        <div>
+        <div className={sheetsPush ? undefined : 'hidden'}>
           <label htmlFor="filter-sync" className="sr-only">
             Google Sheets
           </label>
@@ -441,7 +448,7 @@ export function EnquiriesPage() {
               <caption className="sr-only">Customer enquiries</caption>
               <thead className="border-b border-stone-200 bg-stone-50 text-stone-600">
                 <tr>
-                  {['Received', 'Customer', 'About', 'Status', 'Sheet', ''].map((heading, i) => (
+                  {['Received', 'Customer', 'About', 'Status', ...(sheetsPush ? ['Sheet'] : []), ''].map((heading, i) => (
                     <th key={i} scope="col" className="px-4 py-3 font-medium">
                       {heading || <span className="sr-only">Actions</span>}
                     </th>
@@ -466,9 +473,11 @@ export function EnquiriesPage() {
                     <td className="px-4 py-3">
                       <StatusBadge status={enquiry.status} />
                     </td>
-                    <td className="px-4 py-3">
-                      {enquiry.sheetSyncedAt ? <Pill tone="ok">Synced</Pill> : <Pill tone="warn">Waiting</Pill>}
-                    </td>
+                    {sheetsPush && (
+                      <td className="px-4 py-3">
+                        {enquiry.sheetSyncedAt ? <Pill tone="ok">Synced</Pill> : <Pill tone="warn">Waiting</Pill>}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-right">
                       <button
                         type="button"
@@ -504,7 +513,7 @@ export function EnquiriesPage() {
                   </span>
                   <span className="mt-2 flex items-center justify-between gap-3 text-sm text-stone-500">
                     {formatDate(enquiry.createdAt)}
-                    {!enquiry.sheetSyncedAt && <Pill tone="warn">Not in sheet</Pill>}
+                    {sheetsPush && !enquiry.sheetSyncedAt && <Pill tone="warn">Not in sheet</Pill>}
                   </span>
                 </button>
               </li>
@@ -541,6 +550,7 @@ export function EnquiriesPage() {
         <EnquiryDetail
           key={selected.id}
           enquiry={selected}
+          sheetsPush={sheetsPush}
           onClose={() => setSelected(null)}
           onUpdated={onUpdated}
         />

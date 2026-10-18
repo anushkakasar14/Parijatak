@@ -107,8 +107,17 @@ function SheetsCard({ sheets, onSynced }: { sheets: Overview['googleSheets']; on
     }
   }
 
+  const { feed } = sheets
   const pill = !sheets.configured ? (
-    <Pill tone="warn">Not set up</Pill>
+    feed.enabled ? (
+      feed.lastSuccessAt ? (
+        <Pill tone="ok">Read by Google</Pill>
+      ) : (
+        <Pill tone="warn">Waiting for the sheet</Pill>
+      )
+    ) : (
+      <Pill tone="warn">Not set up</Pill>
+    )
   ) : checking || !health ? (
     <Pill>Checking…</Pill>
   ) : health.ok ? (
@@ -127,8 +136,17 @@ function SheetsCard({ sheets, onSynced }: { sheets: Overview['googleSheets']; on
       </div>
 
       <div className="mt-2 space-y-2 text-stone-600" aria-live="polite">
+        {feed.enabled && (
+          <p>
+            {feed.lastSuccessAt
+              ? `The sheet last read the enquiries on ${formatDate(feed.lastSuccessAt)} (${feed.detail}). Google refreshes it by itself, about every hour.`
+              : 'The enquiries feed is on, but no sheet has read it yet. Paste the formula into cell A1 of the sheet.'}
+          </p>
+        )}
         {!sheets.configured ? (
-          <p>Google Sheets is not set up, so enquiries are not copied to a sheet. Every enquiry is still saved here.</p>
+          !feed.enabled && (
+            <p>Google Sheets is not set up, so enquiries are not copied to a sheet. Every enquiry is still saved here.</p>
+          )
         ) : health && !checking ? (
           health.ok ? (
             <p>
