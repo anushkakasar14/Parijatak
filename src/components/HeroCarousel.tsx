@@ -134,7 +134,8 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
 
       {/* Caption along the bottom edge of the media; the soft scrim keeps it readable on any photo */}
       <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-ink/80 via-ink/45 to-transparent pt-24 text-ivory">
-        <div className="container-page flex flex-wrap items-end justify-between gap-x-10 gap-y-5 pb-6 md:pb-10">
+        {/* Bottom space reduced by 0.5 cm so the text sits lower; at least 0.5rem stays on phones */}
+        <div className="container-page flex flex-wrap items-end justify-between gap-x-10 gap-y-5 pb-[max(0.5rem,calc(1.5rem-0.5cm))] md:pb-[calc(2.5rem-0.5cm)]">
           <div aria-live={autoplaying ? 'off' : 'polite'} className="max-w-2xl">
             {current.eyebrow && <p className="eyebrow mb-3 text-ivory/85">{current.eyebrow}</p>}
             <h2 className="text-4xl md:text-6xl">{current.heading}</h2>

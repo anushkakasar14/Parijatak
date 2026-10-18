@@ -30,7 +30,15 @@ export function Navbar() {
           <Logo />
         </Link>
 
-        <div aria-hidden="true" />
+        {/* Mirrors the menu button: its right edge sits 1 cm from the screen edge */}
+        <div className="flex items-center justify-end pr-[1cm]">
+          <Link
+            to="/about"
+            className="inline-flex min-h-11 items-center rounded-full border border-maroon bg-maroon px-3 text-[0.6875rem] font-medium tracking-[0.16em] text-ivory uppercase transition-colors duration-300 hover:border-maroon-deep hover:bg-maroon-deep sm:px-5 sm:text-xs sm:tracking-[0.22em]"
+          >
+            Blogs
+          </Link>
+        </div>
       </div>
 
       <MobileMenu open={menuOpen} onClose={closeMenu} />
