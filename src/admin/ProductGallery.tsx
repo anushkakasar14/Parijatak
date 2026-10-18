@@ -132,7 +132,7 @@ export function ProductGallery({
                   value={image.alt}
                   maxLength={200}
                   onChange={(e) => setAlt(image.key, e.target.value)}
-                  className={`${fieldClass} mt-1 py-1.5 text-sm`}
+                  className={`${fieldClass} mt-1 py-1.5 sm:text-sm`}
                 />
                 {error && <p className="mt-1 text-sm text-red-700">{error}</p>}
 

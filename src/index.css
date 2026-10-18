@@ -93,6 +93,34 @@
     }
   }
 
+  /*
+   * The homepage carousel's frame: a margin on all four sides — about 1 cm on laptops and
+   * desktops, less on phones and small tablets so the picture is not cramped.
+   */
+  .hero-frame {
+    --hero-gap: 0.75rem;
+    padding: var(--hero-gap);
+
+    @media (width >= 40rem) {
+      --hero-gap: 1.25rem;
+    }
+    @media (width >= 64rem) {
+      --hero-gap: 1cm;
+    }
+  }
+
+  /* The carousel itself: whatever is left of the first screen below the navbar and the margins. */
+  .hero-stage {
+    --header-h: calc(5rem + 1px);
+    height: calc(100svh - var(--header-h) - 2 * var(--hero-gap, 0px));
+    /* Landscape phones: stay usable rather than squeezing into a strip */
+    min-height: 20rem;
+
+    @media (width >= 48rem) {
+      --header-h: calc(6rem + 1px);
+    }
+  }
+
   .eyebrow {
     font-size: 0.75rem;
     font-weight: 500;
@@ -160,6 +188,14 @@
     letter-spacing: 0.14em;
     text-transform: uppercase;
     transition: color 0.2s;
+    position: relative;
+
+    /* A larger, invisible tap area (about 44 px tall) without moving the underline */
+    &::after {
+      content: '';
+      position: absolute;
+      inset: -0.5rem -0.25rem;
+    }
 
     &:hover {
       color: var(--color-maroon);

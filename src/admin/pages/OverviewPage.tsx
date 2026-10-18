@@ -184,7 +184,7 @@ function SheetsCard({ sheets, onSynced }: { sheets: Overview['googleSheets']; on
             </button>
           )}
           {sheets.pending > 0 && (
-            <Link to="/admin/enquiries?synced=false" className="text-sm font-medium text-maroon hover:underline">
+            <Link to="/admin/enquiries?synced=false" className="inline-flex min-h-11 items-center text-sm font-medium text-maroon hover:underline">
               See which ones
             </Link>
           )}
@@ -367,13 +367,14 @@ export function OverviewPage() {
         </section>
       )}
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
+      {/* grid-cols-1 lets the cards shrink to the screen on phones instead of growing to their widest line */}
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1.6fr_1fr]">
         <section className={cardClass} aria-labelledby="recent-heading">
           <div className="flex items-center justify-between gap-3">
             <h2 id="recent-heading" className="font-sans text-lg font-medium text-stone-900">
               {ranged ? 'Latest enquiries in these dates' : 'Latest enquiries'}
             </h2>
-            <Link to="/admin/enquiries" className="text-sm font-medium text-maroon hover:underline">
+            <Link to="/admin/enquiries" className="inline-flex min-h-11 items-center text-sm font-medium text-maroon hover:underline">
               View all
             </Link>
           </div>
@@ -409,7 +410,7 @@ export function OverviewPage() {
           <h2 id="products-heading" className="font-sans text-lg font-medium text-stone-900">
             Recently changed products
           </h2>
-          <Link to="/admin/products?sort=updated" className="text-sm font-medium text-maroon hover:underline">
+          <Link to="/admin/products?sort=updated" className="inline-flex min-h-11 items-center text-sm font-medium text-maroon hover:underline">
             View all
           </Link>
         </div>

@@ -8,7 +8,8 @@ import { SocialLinks } from './SocialLinks'
 export function Footer() {
   const { settings, whatsappUrl, whatsappDisplay } = useSite()
   const { brand, contact, footer } = settings
-  const linkClass = 'underline underline-offset-4 transition-colors hover:text-maroon'
+  // Padding makes each link about 44 px tall to tap, without changing how it looks.
+  const linkClass = 'inline-block py-2.5 underline underline-offset-4 transition-colors hover:text-maroon'
 
   return (
     <footer className="border-t border-gold/40 bg-cream">
@@ -23,10 +24,10 @@ export function Footer() {
 
         <nav aria-label="Footer">
           <h2 className="eyebrow mb-5 font-sans">Quick Links</h2>
-          <ul className="space-y-2.5">
+          <ul>
             {navLinks.map(({ label, to }) => (
               <li key={to}>
-                <Link to={to} className="transition-colors hover:text-maroon">
+                <Link to={to} className="inline-flex min-h-11 items-center transition-colors hover:text-maroon">
                   {label === 'Contact Us' ? 'Contact' : label}
                 </Link>
               </li>
@@ -49,7 +50,7 @@ export function Footer() {
               </span>
             ))}
           </address>
-          <ul className="mt-5 space-y-1">
+          <ul className="mt-3">
             <li>
               <span className="text-muted">WhatsApp: </span>
               <a

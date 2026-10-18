@@ -242,7 +242,7 @@ export function ContentPage() {
             role="tab"
             aria-selected={page === p.id}
             onClick={() => setPage(p.id)}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+            className={`min-h-11 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
               page === p.id ? 'bg-maroon text-white' : 'border border-stone-300 bg-white text-stone-700 hover:bg-stone-50'
             }`}
           >

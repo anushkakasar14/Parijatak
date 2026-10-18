@@ -21,7 +21,7 @@ export function SocialLinks({ variant = 'list', className = '' }: SocialLinksPro
   ].filter((link) => link.href)
 
   return (
-    <ul className={`${isButtons ? 'flex flex-wrap gap-3' : 'space-y-2.5'} ${className}`}>
+    <ul className={`${isButtons ? 'flex flex-wrap gap-3' : ''} ${className}`}>
       {links.map(({ label, href, icon }) => (
         <li key={label}>
           <a
@@ -31,7 +31,8 @@ export function SocialLinks({ variant = 'list', className = '' }: SocialLinksPro
             className={
               isButtons
                 ? 'btn btn-outline'
-                : 'inline-flex items-center gap-2.5 transition-colors hover:text-maroon'
+                : // 44 px tall: comfortable to tap
+                  'inline-flex min-h-11 items-center gap-2.5 transition-colors hover:text-maroon'
             }
           >
             {icon}

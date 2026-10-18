@@ -11,9 +11,8 @@ const AUTOPLAY_MS = 6500
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-// Navbar (5rem / 6rem + 1px border) plus the hero fill exactly one screen.
-const heroFrameClass =
-  'relative h-[calc(100svh-5rem-1px)] min-h-72 overflow-hidden bg-cream md:h-[calc(100svh-6rem-1px)]'
+// Sized by .hero-stage (index.css): the first screen below the navbar, inside the .hero-frame margins.
+const heroFrameClass = 'hero-stage relative overflow-hidden bg-cream'
 
 /** Holds the hero's space while the slides are loading, so the page does not jump. */
 export function HeroPlaceholder() {
@@ -159,7 +158,7 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
                     onClick={() => go(i)}
                     aria-label={`Go to slide ${i + 1}`}
                     aria-current={i === index ? 'true' : undefined}
-                    className="group grid h-11 w-8 place-items-center"
+                    className="group grid h-11 w-11 place-items-center"
                   >
                     <span
                       className={`block h-0.5 w-6 transition-colors ${

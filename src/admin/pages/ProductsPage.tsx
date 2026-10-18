@@ -515,7 +515,7 @@ export function ProductsPage() {
                       href={`/collection?category=${encodeURIComponent(product.categoryId)}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="px-2 text-sm font-medium text-maroon hover:underline"
+                      className="inline-flex min-h-11 items-center px-2 text-sm font-medium text-maroon hover:underline"
                     >
                       View on website ↗
                     </a>

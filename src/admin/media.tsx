@@ -286,7 +286,7 @@ export function MediaPicker({
             <MediaImage src={value} className="h-full w-full object-cover" onFailed={() => setBroken(value)} />
           )}
         </div>
-        <div className="min-w-0 flex-1 space-y-2">
+        <div className="min-w-48 flex-1 space-y-2">
           <div className={disabled ? 'hidden' : 'flex flex-wrap gap-2'}>
             <UploadButton onUploaded={choose} label={value ? 'Upload a replacement' : 'Upload image'} />
             <button type="button" onClick={() => setChoosing(true)} className={secondaryButtonClass}>
@@ -309,7 +309,7 @@ export function MediaPicker({
             aria-invalid={error ? true : undefined}
             aria-describedby={`${id}-help`}
             placeholder="/media/… or https://…"
-            className={`${fieldClass} mt-0 text-sm`}
+            className={`${fieldClass} mt-0 sm:text-sm`}
           />
           <p id={`${id}-help`} className={`text-sm ${error ? 'text-red-700' : 'text-stone-500'}`}>
             {error ??

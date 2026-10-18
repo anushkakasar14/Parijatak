@@ -92,17 +92,20 @@ export default function Home() {
     <>
       <h1 className="sr-only">Parijatak — Handcrafted Home Textiles</h1>
 
-      {home.status === 'loading' ? (
-        <HeroPlaceholder />
-      ) : slides.length > 0 ? (
-        <HeroCarousel slides={slides} />
-      ) : (
-        <HeroFallback>
-          <Link to="/collection" className="btn btn-primary">
-            Explore Collection
-          </Link>
-        </HeroFallback>
-      )}
+      {/* A margin on all four sides; the carousel fills the rest of the first screen */}
+      <div className="hero-frame">
+        {home.status === 'loading' ? (
+          <HeroPlaceholder />
+        ) : slides.length > 0 ? (
+          <HeroCarousel slides={slides} />
+        ) : (
+          <HeroFallback>
+            <Link to="/collection" className="btn btn-primary">
+              Explore Collection
+            </Link>
+          </HeroFallback>
+        )}
+      </div>
 
       {home.data?.offers.map((offer) => <OfferBanner key={offer.id} offer={offer} />)}
 

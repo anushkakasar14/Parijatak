@@ -158,7 +158,7 @@ export function AdminLayout() {
             onClick={() => setMenuOpen(true)}
             aria-label="Open menu"
             aria-haspopup="dialog"
-            className="-ml-2 grid h-10 w-10 place-items-center rounded-md text-stone-600 hover:bg-stone-100 lg:hidden"
+            className="-ml-2 grid h-11 w-11 place-items-center rounded-md text-stone-600 hover:bg-stone-100 lg:hidden"
           >
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true">
               <path d="M3 7h18M3 12h18M3 17h18" />

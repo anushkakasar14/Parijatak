@@ -85,7 +85,7 @@ export function ProductImages({ images, productName }: { images: GalleryImage[];
 
   return (
     <div
-      className="flex h-full flex-col bg-cream md:flex-row-reverse"
+      className="flex h-full flex-col bg-cream lg:flex-row-reverse"
       role="group"
       aria-roledescription="gallery"
       aria-label={`Pictures of ${productName}`}
@@ -123,10 +123,10 @@ export function ProductImages({ images, productName }: { images: GalleryImage[];
         )}
       </div>
 
-      {/* Thumbnails: a column beside the picture on wide screens, a scrolling row below it on phones */}
+      {/* Thumbnails: a column beside the picture on laptops and larger, a scrolling row below it on tablets and phones */}
       {many && (
         <ul
-          className="flex shrink-0 gap-2 overflow-x-auto p-2 md:max-h-[36rem] md:w-24 md:flex-col md:overflow-x-visible md:overflow-y-auto"
+          className="flex shrink-0 gap-2 overflow-x-auto p-2 lg:max-h-[36rem] lg:w-24 lg:flex-col lg:overflow-x-visible lg:overflow-y-auto"
           aria-label="Choose a picture"
         >
           {images.map((image, i) => (
