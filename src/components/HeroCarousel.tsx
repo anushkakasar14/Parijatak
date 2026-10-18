@@ -12,18 +12,18 @@ const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 // Sized by .hero-stage (index.css): the first screen below the navbar, inside the .hero-frame margins.
-const heroFrameClass = 'hero-stage relative overflow-hidden bg-cream'
+const heroFrameClass = 'hero-stage relative overflow-hidden'
 
 /** Holds the hero's space while the slides are loading, so the page does not jump. */
 export function HeroPlaceholder() {
-  return <div role="status" aria-label="Loading" className={`${heroFrameClass} animate-pulse`} />
+  return <div role="status" aria-label="Loading" className={`${heroFrameClass} animate-pulse bg-cream`} />
 }
 
 /** Shown in place of the carousel when there are no slides, or they could not be loaded. */
 export function HeroFallback({ children }: { children?: ReactNode }) {
   const { settings } = useSite()
   return (
-    <section className={`${heroFrameClass} grid place-items-center px-5 text-center`}>
+    <section className={`${heroFrameClass} grid place-items-center bg-cream px-5 text-center`}>
       <div>
         <p className="eyebrow mb-5">{settings.contact.addressName}</p>
         <p className="mx-auto max-w-3xl font-display text-4xl leading-tight md:text-6xl">
@@ -87,7 +87,9 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
     <section
       aria-roledescription="carousel"
       aria-label="Parijatak highlights"
-      className={heroFrameClass}
+      // Pictures are shown whole (never cropped or stretched); the deep ink shows around any
+      // whose shape differs from the frame, and keeps the light arrows and caption readable.
+      className={`${heroFrameClass} bg-ink`}
       onMouseEnter={() => setHeld(true)}
       onMouseLeave={() => setHeld(false)}
       onFocus={() => setHeld(true)}
