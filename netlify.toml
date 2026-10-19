@@ -23,6 +23,32 @@
   to = "/.netlify/functions/api/:splat"
   status = 200
 
+# The page files themselves are not separate addresses: send them to the clean address.
+# (These match only what the visitor asked for, so the rewrites below do not loop.)
+[[redirects]]
+  from = "/index.html"
+  to = "/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/collection.html"
+  to = "/collection"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/about.html"
+  to = "/about"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/contact.html"
+  to = "/contact"
+  status = 301
+  force = true
+
 # Each public page has its own HTML file with its title, description and official address
 # (written by the build), so search engines and link previews see them without JavaScript.
 [[redirects]]
