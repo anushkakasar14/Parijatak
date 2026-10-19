@@ -3,10 +3,11 @@
  * search-engine titles and the navigation. Brand, contact and social details live in
  * the database and are read through `useSite()`.
  */
+import { pageSeo } from './seo'
+
 export const site = {
-  title: 'Parijatak — Handcrafted Home Textiles',
-  description:
-    'Discover handcrafted home textiles rooted in Indian tradition and designed for contemporary living.',
+  title: pageSeo.home.title,
+  description: pageSeo.home.description,
 
   /** Path to the supplied logo file (in /public). */
   logoSrc: '/logo.png',

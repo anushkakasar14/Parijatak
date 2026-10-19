@@ -1,12 +1,10 @@
 import { ContactForm } from '../components/ContactForm'
 import { SectionHeading } from '../components/SectionHeading'
+import { pageSeo } from '../config/seo'
 import { useSeo } from '../hooks/useSeo'
 
 export default function Contact() {
-  useSeo(
-    'Contact Us — Parijatak',
-    'Enquire about Parijatak home textiles, customization, styling and collaborations.',
-  )
+  useSeo(pageSeo.contact.title, pageSeo.contact.description)
 
   return (
     <div className="container-page py-16 md:py-24">

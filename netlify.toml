@@ -23,11 +23,39 @@
   to = "/.netlify/functions/api/:splat"
   status = 200
 
-# Let React Router handle page URLs such as /collection and /about
+# Each public page has its own HTML file with its title, description and official address
+# (written by the build), so search engines and link previews see them without JavaScript.
 [[redirects]]
-  from = "/*"
+  from = "/collection"
+  to = "/collection.html"
+  status = 200
+
+[[redirects]]
+  from = "/about"
+  to = "/about.html"
+  status = 200
+
+[[redirects]]
+  from = "/contact"
+  to = "/contact.html"
+  status = 200
+
+# The admin area is part of the same React app.
+[[redirects]]
+  from = "/admin"
   to = "/index.html"
   status = 200
+
+[[redirects]]
+  from = "/admin/*"
+  to = "/index.html"
+  status = 200
+
+# Any other address is answered "not found" (status 404); the app still shows its page.
+[[redirects]]
+  from = "/*"
+  to = "/404.html"
+  status = 404
 
 # Basic protections for every page (the API adds its own, stricter set).
 [[headers]]

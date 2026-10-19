@@ -6,15 +6,13 @@ import { SectionHeading } from '../components/SectionHeading'
 import { WhatsAppButton } from '../components/WhatsAppButton'
 import { usePageSections } from '../context/SiteContext'
 import { useResource } from '../hooks/useResource'
+import { pageSeo } from '../config/seo'
 import { useSeo } from '../hooks/useSeo'
 import { whatsappMessages } from '../lib/whatsapp'
 import type { Category, Product } from '../types'
 
 export default function Collection() {
-  useSeo(
-    'The Collection — Parijatak',
-    'Thoughtfully crafted bed linens, cushion covers and throws for spaces that feel like home.',
-  )
+  useSeo(pageSeo.collection.title, pageSeo.collection.description)
 
   const { section, ready } = usePageSections('collection')
   const products = useResource<Product[]>('/products')

@@ -5,6 +5,7 @@ import { SocialLinks } from '../components/SocialLinks'
 import { StorySection } from '../components/StorySection'
 import { WhatsAppButton } from '../components/WhatsAppButton'
 import { usePageSections } from '../context/SiteContext'
+import { pageSeo } from '../config/seo'
 import { useSeo } from '../hooks/useSeo'
 import { whatsappMessages } from '../lib/whatsapp'
 
@@ -24,10 +25,7 @@ function AccentHeading({ text }: { text: string }) {
 }
 
 export default function About() {
-  useSeo(
-    'About — Parijatak',
-    'The story of Parijatak: Indian traditional craftsmanship, thoughtfully designed for contemporary homes.',
-  )
+  useSeo(pageSeo.about.title, pageSeo.about.description)
 
   const { section, ready } = usePageSections('about')
   const intro = section('about.intro')

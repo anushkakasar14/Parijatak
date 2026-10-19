@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
+import { SITE_URL } from '../config/seo'
 import { site } from '../config/site'
-
-const SITE_URL = 'https://www.studioparijatak.com'
 
 function setMeta(selector: string, content: string) {
   document.head.querySelector<HTMLMetaElement>(selector)?.setAttribute('content', content)
@@ -36,11 +35,17 @@ export function useSeo(
       document.head.appendChild(link)
     }
 
-    if (!noindex) return
+    // Exactly one "noindex" on the not-found page, none anywhere else — including the one
+    // the not-found page's own HTML file starts with, if the visitor moves on from it.
+    const existing = [...document.head.querySelectorAll<HTMLMetaElement>('meta[name="robots"]')]
+    if (!noindex) {
+      existing.forEach((meta) => meta.remove())
+      return
+    }
+    if (existing.length) return
     const robots = document.createElement('meta')
     robots.name = 'robots'
     robots.content = 'noindex'
     document.head.appendChild(robots)
-    return () => robots.remove()
   }, [title, description, noindex])
 }

@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
 import { SectionHeading } from '../components/SectionHeading'
+import { notFoundSeo } from '../config/seo'
 import { useSeo } from '../hooks/useSeo'
 
 export default function NotFound() {
-  useSeo('Page not found — Parijatak', undefined, { noindex: true })
+  useSeo(notFoundSeo.title, notFoundSeo.description, { noindex: true })
 
   return (
     <section className="container-page py-28 text-center md:py-40">
