@@ -103,11 +103,11 @@ describe('Google Sheets formula feed', () => {
     const lines = bytes.toString('utf8').trim().split('\r\n')
     assert.equal(lines[0], 'Received (India time),Name,Email,Contact number,Inquiry type,Product,Message,Status,Source,Reference')
     assert.equal(lines.length, 3)
-    assert.ok(lines[1].startsWith('2026-05-01 11:30,"Meera, ""Studio"" Owner"'), 'oldest first, India time, escaped')
+    assert.ok(lines[1].startsWith('1 May 2026 · 11:30 am,"Meera, ""Studio"" Owner"'), 'oldest first, India time, escaped')
     assert.ok(lines[1].includes('" =HYPERLINK(""http://evil.example"",""click"")"'), 'formula kept as plain text')
     assert.ok(lines[1].includes(', +91 98765 43210,'), 'readable phone number; the leading space keeps it as text')
     assert.ok(lines[1].includes(',New,website,'))
-    assert.ok(lines[2].startsWith('2026-05-02 11:30,Second Person'))
+    assert.ok(lines[2].startsWith('2 May 2026 · 11:30 am,Second Person'))
   })
 
   test('the admin overview shows when Google last read the feed — and nothing before it has', async () => {

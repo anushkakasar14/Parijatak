@@ -5,7 +5,6 @@ import { enquiryModel } from '../models/enquiryModel.ts'
 import { integrationStatusModel } from '../models/integrationStatusModel.ts'
 import { toCsv } from '../utils/csv.ts'
 import { HttpError } from '../utils/httpError.ts'
-import { formatIndiaDateTime } from '../utils/indiaDate.ts'
 import { enquiryStatusLabels } from './enquiryController.ts'
 
 export const SHEETS_FEED = 'google-sheets-feed'
@@ -19,6 +18,25 @@ function keyMatches(given: string, expected: string): boolean {
 
 /** "+919876543210" → "+91 98765 43210": easier to read, and kept as text by the sheet. */
 const readablePhone = (phone: string) => (/^\+91\d{10}$/.test(phone) ? `${phone.slice(0, 3)} ${phone.slice(3, 8)} ${phone.slice(8)}` : phone)
+
+const indiaParts = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Kolkata',
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true,
+})
+
+/**
+ * "14 Oct 2026 · 3:42 pm" in India time. The dot between date and time stops the sheet
+ * turning it into a bare serial number, so it reads the same without any formatting.
+ */
+const readableDate = (iso: string) => {
+  const p = Object.fromEntries(indiaParts.formatToParts(new Date(iso)).map((x) => [x.type, x.value]))
+  return `${p.day} ${p.month} ${p.year} · ${p.hour}:${p.minute} ${p.dayPeriod.toLowerCase()}`
+}
 
 export const sheetsFeedController = {
   /**
@@ -34,7 +52,7 @@ export const sheetsFeedController = {
     const { enquiries } = await enquiryModel.list({ limit: FEED_LIMIT, offset: 0 })
     // Oldest first, so existing rows stay where they are and new enquiries appear at the bottom.
     const rows = enquiries.reverse().map((e) => [
-      formatIndiaDateTime(e.createdAt),
+      readableDate(e.createdAt),
       e.name,
       e.email,
       readablePhone(e.phone),
