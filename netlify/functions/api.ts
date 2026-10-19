@@ -22,8 +22,8 @@ async function build(): Promise<Handler> {
   // Imported lazily so a configuration problem becomes a clean JSON error
   // instead of a function that fails to start.
   const { createApp } = await import('../../server/app.ts')
-  // Images are sent back as binary, not text.
-  return serverless(createApp(), { binary: ['image/*'] }) as Handler
+  // Images and video pieces are sent back as binary, not text.
+  return serverless(createApp(), { binary: ['image/*', 'video/*'] }) as Handler
 }
 
 export const handler: Handler = async (event, context) => {

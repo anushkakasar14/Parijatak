@@ -317,4 +317,32 @@ export const migrations: Migration[] = [
       )`,
     ],
   },
+  {
+    version: 8,
+    name: 'video_uploads',
+    // Additive: uploaded files can be videos too. A video is stored in pieces (so it can
+    // be uploaded and played back through the function's ~6 MB request limit), and an
+    // upload in progress is tracked until every piece has arrived.
+    statements: [
+      `ALTER TABLE media_assets ADD COLUMN kind TEXT NOT NULL DEFAULT 'image' CHECK (kind IN ('image', 'video'))`,
+      `ALTER TABLE media_assets ADD COLUMN chunk_size INTEGER`,
+      `ALTER TABLE media_assets ADD COLUMN chunk_count INTEGER`,
+      `ALTER TABLE media_assets ADD COLUMN duration_seconds NUMERIC(10, 2)`,
+      `CREATE INDEX media_assets_kind_idx ON media_assets (kind, created_at DESC)`,
+      `CREATE TABLE media_uploads (
+        id               UUID PRIMARY KEY,
+        filename         TEXT NOT NULL,
+        content_type     TEXT NOT NULL,
+        byte_size        INTEGER NOT NULL CHECK (byte_size > 0),
+        chunk_size       INTEGER NOT NULL CHECK (chunk_size > 0),
+        chunk_count      INTEGER NOT NULL CHECK (chunk_count > 0),
+        received_chunks  INTEGER[] NOT NULL DEFAULT '{}',
+        width            INTEGER,
+        height           INTEGER,
+        duration_seconds NUMERIC(10, 2),
+        uploaded_by      UUID REFERENCES admin_users(id) ON DELETE SET NULL,
+        created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+      )`,
+    ],
+  },
 ]

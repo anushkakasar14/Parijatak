@@ -3,17 +3,8 @@ import type { FormEvent } from 'react'
 import { ApiError, adminFetch } from '../api'
 import { useAuth } from '../AuthContext'
 import { ConfirmDialog, Dialog, EmptyState, ErrorNotice, LoadingBlock, Notice, PageHeader, Pill } from '../components'
-import {
-  Checkbox,
-  MEDIA_LIST_ID,
-  MediaLibraryList,
-  MediaPreview,
-  SelectInput,
-  TextInput,
-  useFormState,
-  videoHint,
-} from '../forms'
-import { MediaPicker } from '../media'
+import { Checkbox, MediaLibraryList, SelectInput, TextInput, useFormState } from '../forms'
+import { MediaPicker, VideoPicker } from '../media'
 import { useApi } from '../hooks'
 import { statusOptions } from '../types'
 import type { PublicationStatus, Slide } from '../types'
@@ -129,17 +120,17 @@ function SlideEditor({
           />
         ) : (
           <>
-            <TextInput
+            <VideoPicker
               id="slide-media"
-              label="Video file"
+              label="Video"
               value={values.mediaUrl}
               onChange={set('mediaUrl')}
-              list={MEDIA_LIST_ID}
-              hint={videoHint}
+              // A new upload brings a still picture made from its first frame.
+              onPosterSuggested={set('posterUrl')}
+              poster={values.posterUrl}
               error={errors.mediaUrl}
               required
             />
-            <MediaPreview url={values.mediaUrl} video />
             <MediaPicker
               id="slide-poster"
               label="Still picture shown before the video plays"

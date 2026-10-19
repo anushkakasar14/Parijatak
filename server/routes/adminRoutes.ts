@@ -63,5 +63,15 @@ adminRoutes.post(
   express.raw({ type: () => true, limit: MAX_UPLOAD_BYTES }),
   mediaController.upload,
 )
+// Videos: too large for one request, so they are sent in pieces (see mediaController).
+adminRoutes.post('/media/videos', write, mediaController.startVideo)
+adminRoutes.put(
+  '/media/videos/:uploadId/chunks/:index',
+  write,
+  express.raw({ type: () => true, limit: MAX_UPLOAD_BYTES }),
+  mediaController.putVideoChunk,
+)
+adminRoutes.post('/media/videos/:uploadId/complete', write, mediaController.completeVideo)
+adminRoutes.delete('/media/videos/:uploadId', write, mediaController.abortVideo)
 adminRoutes.patch('/media/:id', write, mediaController.update)
 adminRoutes.delete('/media/:id', write, mediaController.remove)

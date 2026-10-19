@@ -113,12 +113,15 @@ export interface Category {
 
 export interface MediaAsset {
   id: string
+  kind: 'image' | 'video'
   url: string
   filename: string
   contentType: string
   byteSize: number
   width: number | null
   height: number | null
+  /** Videos only. */
+  durationSeconds: number | null
   altText: string
   createdAt: string
 }

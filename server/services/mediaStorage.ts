@@ -1,5 +1,5 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { mkdir, readFile, rm, rmdir, writeFile } from 'node:fs/promises'
+import { dirname, join, resolve } from 'node:path'
 import { getStore } from '@netlify/blobs'
 import { env } from '../config/env.ts'
 
@@ -47,10 +47,12 @@ function netlifyBlobs(): MediaStorage {
 function localFolder(): MediaStorage {
   const dir = resolve('data', 'uploads')
   const types: Record<string, string> = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }
+  // (Video pieces are served with the type stored in the database, not guessed from here.)
   return {
     kind: 'local-folder',
     async put(key, data) {
-      await mkdir(dir, { recursive: true })
+      // Video pieces live in a folder per video (video/<id>/<n>).
+      await mkdir(dirname(join(dir, key)), { recursive: true })
       await writeFile(join(dir, key), data)
     },
     async get(key) {
@@ -63,6 +65,8 @@ function localFolder(): MediaStorage {
     },
     async delete(key) {
       await rm(join(dir, key), { force: true })
+      // A video's folder goes with its last piece (rmdir refuses while anything is left).
+      if (key.includes('/')) await rmdir(dirname(join(dir, key))).catch(() => {})
     },
   }
 }

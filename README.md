@@ -306,8 +306,8 @@ The admin panel lives at `/admin`. Administrators sign in with an email and pass
 | Overview | Enquiry counts by status (including follow-up required) for any date range, product and offer counts, recent changes, quick actions, and a live Google Sheets connection check with a retry button |
 | Enquiries | List with search, filters (status, type, product/general, sheet status, received dates in India time), paging, CSV download of the filtered list, full details with copy buttons, status changes and internal notes |
 | Products | Search, filters, sorting and paging; add, edit, duplicate, publish, archive, delete. Each product has a picture gallery: upload several at once (photos are shrunk to at most 2,400 px in the browser first, and files named 1, 1.1, 1.2 keep that order), choose from the library, replace, remove (with confirmation), reorder by drag-and-drop or arrows, choose the main picture, and describe each. Nothing changes until Save; closing with unsaved changes asks first |
-| Categories, Media library | Categories with visibility and product counts; uploaded images with size, dimensions and descriptions. Images in use cannot be deleted |
-| Homepage carousel, Offers & banners, Homepage & About, Contact & social | Content screens, with the same image picker |
+| Categories, Media library | Categories with visibility and product counts. The library holds uploaded pictures and videos (filter by type), with size, dimensions, length and descriptions; a video plays in its details. Files in use cannot be deleted |
+| Homepage carousel, Offers & banners, Homepage & About, Contact & social | Content screens, with the same image picker. Video slides and "From the studio" videos are uploaded from the computer too: "Upload from PC" or drag and drop, with progress; the first frame is saved as the still picture automatically. Videos must be MP4 or WebM (iPhone .mov files are refused with advice to convert), up to 100 MB |
 | Account | Who is signed in, and change password |
 
 The panel adapts to phones: the sidebar becomes a slide-in menu and the enquiry table becomes a list of cards. A `viewer` account sees everything but gets no controls that change data; the server refuses such requests regardless.
@@ -581,7 +581,7 @@ WhatsApp remains a frontend channel: "Enquire on WhatsApp" opens a `wa.me` link 
 
 ## Known limitations and outstanding work
 
-- **Videos cannot be uploaded** through the admin (a Netlify function accepts about 6 MB per request; images are limited to 4 MB after shrinking). Videos are files in `public/media`, added with a deploy. Product galleries hold images only.
+- **Video playback goes through the function.** Netlify functions take and return about 6 MB per request, so videos (MP4 or WebM, up to 100 MB) are uploaded and stored in 4 MB pieces in Netlify Blobs, and played back one range at a time. Each few MB watched is a function call; with heavy video traffic, moving videos to object storage with direct uploads (for example Cloudflare R2) would be the next step. Product galleries hold images only.
 - **No blog.** Nothing in the project uses one; it can be added as a new migration when wanted.
 - **Google Sheets has never been run against a real sheet** from this codebase; only its failure handling is verified.
 - **Rate limits are approximate on Netlify** (counted per function instance). Sign-in throttling and duplicate protection are exact because they live in the database.

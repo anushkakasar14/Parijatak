@@ -222,22 +222,3 @@ export function MediaLibraryList() {
     </datalist>
   )
 }
-
-/** Videos cannot be uploaded through the admin (they are too large for it), so they are typed. */
-export const videoHint =
-  'A video already on the website, such as /media/story-yarn.mp4 (start typing to see them), or a full https:// address. New videos are added to the website by a developer.'
-
-/** Shows a small preview of an image or video path, or says plainly that it cannot be found. */
-export function MediaPreview({ url, video = false }: { url: string; video?: boolean }) {
-  const [failed, setFailed] = useState<string | null>(null)
-  if (!url) return null
-  if (failed === url) {
-    return <p className="text-sm text-red-700">No file was found at this address.</p>
-  }
-  const className = 'h-28 w-44 rounded-md border border-stone-200 bg-stone-100 object-cover'
-  return video ? (
-    <video src={url} muted playsInline preload="metadata" className={className} onError={() => setFailed(url)} />
-  ) : (
-    <img src={url} alt="" className={className} onError={() => setFailed(url)} />
-  )
-}

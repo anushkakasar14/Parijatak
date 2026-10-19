@@ -6,7 +6,8 @@ import { copyText } from '../clipboard'
 import { ConfirmDialog, Dialog, EmptyState, ErrorNotice, LoadingBlock, Notice, PageHeader, formatDate } from '../components'
 import { TextInput } from '../forms'
 import { useApi, useDebounced } from '../hooks'
-import { MAX_UPLOAD_MB, MediaImage, UploadButton, formatBytes } from '../media'
+import { MAX_UPLOAD_MB, MediaImage, MediaVideo, UploadButton, formatBytes } from '../media'
+import { MAX_VIDEO_MB, formatDuration } from '../videoUpload'
 import type { MediaAsset, Paginated } from '../types'
 import { fieldClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../ui'
 
@@ -49,7 +50,11 @@ function AssetDetails({
 
   return (
     <Dialog open onClose={onClose} title={asset.filename} width="max-w-2xl">
-      <MediaImage src={asset.url} alt={asset.altText} className="max-h-[50svh] w-full rounded-md bg-stone-100 object-contain" />
+      {asset.kind === 'video' ? (
+        <MediaVideo src={asset.url} controls className="max-h-[50svh] w-full rounded-md bg-stone-900 object-contain" />
+      ) : (
+        <MediaImage src={asset.url} alt={asset.altText} className="max-h-[50svh] w-full rounded-md bg-stone-100 object-contain" />
+      )}
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
         <div>
           <dt className="text-stone-500">Size</dt>
@@ -61,7 +66,10 @@ function AssetDetails({
         </div>
         <div>
           <dt className="text-stone-500">Type</dt>
-          <dd className="text-stone-900">{asset.contentType.replace('image/', '').toUpperCase()}</dd>
+          <dd className="text-stone-900">
+            {asset.contentType.replace(/^(image|video)\//, '').toUpperCase()}
+            {asset.kind === 'video' && asset.durationSeconds != null && ` · ${formatDuration(asset.durationSeconds)}`}
+          </dd>
         </div>
         <div>
           <dt className="text-stone-500">Uploaded</dt>
@@ -84,18 +92,18 @@ function AssetDetails({
       <form onSubmit={save} className="mt-4 space-y-3">
         <TextInput
           id="asset-alt"
-          label="Description (for people who cannot see the image)"
+          label={`Description (for people who cannot see the ${asset.kind === 'video' ? 'video' : 'image'})`}
           value={altText}
           onChange={setAltText}
           disabled={!canEdit}
           maxLength={200}
-          hint="Suggested automatically when this image is chosen for a product."
+          hint={asset.kind === 'video' ? undefined : 'Suggested automatically when this image is chosen for a product.'}
         />
         {result && <Notice kind={result.kind}>{result.text}</Notice>}
         {canEdit && (
           <div className="flex flex-wrap justify-between gap-3 border-t border-stone-200 pt-4">
             <button type="button" onClick={onDelete} className={`${secondaryButtonClass} text-red-700`}>
-              Delete image
+              Delete {asset.kind === 'video' ? 'video' : 'image'}
             </button>
             <button type="submit" disabled={saving || altText === asset.altText} className={primaryButtonClass}>
               {saving ? 'Saving…' : 'Save description'}
@@ -111,10 +119,11 @@ export function MediaPage() {
   const { user } = useAuth()
   const canEdit = user?.role === 'admin'
   const [search, setSearch] = useState('')
+  const [kind, setKind] = useState<'' | 'image' | 'video'>('')
   const [page, setPage] = useState(1)
   const query = useDebounced(search.trim())
   const { data, error, loading, reload } = useApi<Paginated<MediaAsset>>(
-    `/admin/media?limit=${PAGE_SIZE}&offset=${(page - 1) * PAGE_SIZE}${query ? `&search=${encodeURIComponent(query)}` : ''}`,
+    `/admin/media?limit=${PAGE_SIZE}&offset=${(page - 1) * PAGE_SIZE}${kind ? `&kind=${kind}` : ''}${query ? `&search=${encodeURIComponent(query)}` : ''}`,
     { raw: true },
   )
   const [open, setOpen] = useState<MediaAsset | null>(null)
@@ -146,12 +155,13 @@ export function MediaPage() {
     <>
       <PageHeader
         title="Media library"
-        description={`Images uploaded for products and pages. JPEG, PNG or WebP, up to ${MAX_UPLOAD_MB} MB each.`}
+        description={`Pictures and videos for products and pages. Pictures: JPEG, PNG or WebP, up to ${MAX_UPLOAD_MB} MB after automatic resizing. Videos: MP4 or WebM, up to ${MAX_VIDEO_MB} MB.`}
         action={
           canEdit && (
             <UploadButton
               multiple
-              label="Upload images"
+              accept="any"
+              label="Upload from PC"
               className={primaryButtonClass}
               onUploaded={(asset) => {
                 setNotice({ kind: 'ok', text: `“${asset.filename}” was uploaded.` })
@@ -163,20 +173,44 @@ export function MediaPage() {
         }
       />
 
-      <div className="mb-5 max-w-md">
-        <label htmlFor="media-search" className={labelClass}>
-          Search by file name or description
-        </label>
-        <input
-          id="media-search"
-          type="search"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value)
-            setPage(1)
-          }}
-          className={fieldClass}
-        />
+      <div className="mb-5 flex flex-wrap items-end gap-4">
+        <div role="group" aria-label="Show" className="flex gap-2">
+          {(
+            [
+              ['', 'All'],
+              ['image', 'Pictures'],
+              ['video', 'Videos'],
+            ] as const
+          ).map(([value, text]) => (
+            <button
+              key={text}
+              type="button"
+              aria-pressed={kind === value}
+              onClick={() => {
+                setKind(value)
+                setPage(1)
+              }}
+              className={kind === value ? primaryButtonClass : secondaryButtonClass}
+            >
+              {text}
+            </button>
+          ))}
+        </div>
+        <div className="min-w-56 max-w-md flex-1">
+          <label htmlFor="media-search" className={labelClass}>
+            Search by file name or description
+          </label>
+          <input
+            id="media-search"
+            type="search"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
+            className={fieldClass}
+          />
+        </div>
       </div>
 
       {notice && (
@@ -190,13 +224,13 @@ export function MediaPage() {
       ) : !data ? (
         <LoadingBlock />
       ) : data.data.length === 0 ? (
-        <EmptyState title={query ? 'No images match' : 'No uploaded images yet'}>
-          {query ? 'Try another word.' : 'Images you upload here, or from a product, appear in this library.'}
+        <EmptyState title={query ? 'Nothing matches' : kind === 'video' ? 'No uploaded videos yet' : kind === 'image' ? 'No uploaded pictures yet' : 'Nothing uploaded yet'}>
+          {query ? 'Try another word.' : 'Pictures and videos you upload here, or from a product or page, appear in this library.'}
         </EmptyState>
       ) : (
         <>
           <p className="mb-3 text-sm text-stone-500">
-            {total} {total === 1 ? 'image' : 'images'}
+            {total} {total === 1 ? 'file' : 'files'}
           </p>
           <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6" aria-busy={loading}>
             {data.data.map((asset) => (
@@ -206,10 +240,18 @@ export function MediaPage() {
                   onClick={() => setOpen(asset)}
                   className="block w-full overflow-hidden rounded-lg border border-stone-200 bg-white text-left hover:border-maroon"
                 >
-                  <MediaImage src={asset.url} loading="lazy" className="aspect-square w-full bg-stone-100 object-cover" />
-                  <span className="block truncate px-2.5 pt-2 text-sm text-stone-800">{asset.filename}</span>
+                  {asset.kind === 'video' ? (
+                    <MediaVideo src={asset.url} className="pointer-events-none aspect-square w-full bg-stone-900 object-cover" />
+                  ) : (
+                    <MediaImage src={asset.url} loading="lazy" className="aspect-square w-full bg-stone-100 object-cover" />
+                  )}
+                  <span className="block truncate px-2.5 pt-2 text-sm text-stone-800">
+                    {asset.kind === 'video' && <span className="mr-1 rounded bg-stone-800 px-1 text-[10px] font-medium text-white uppercase">Video</span>}
+                    {asset.filename}
+                  </span>
                   <span className="block px-2.5 pb-2 text-xs text-stone-500">
                     {asset.width && asset.height ? `${asset.width} × ${asset.height} · ` : ''}
+                    {asset.kind === 'video' && asset.durationSeconds != null ? `${formatDuration(asset.durationSeconds)} · ` : ''}
                     {formatBytes(asset.byteSize)}
                     {!asset.altText && ' · no description'}
                   </span>
@@ -248,8 +290,8 @@ export function MediaPage() {
 
       <ConfirmDialog
         open={deleting !== null}
-        title="Delete this image?"
-        confirmLabel="Delete image"
+        title={`Delete this ${deleting?.kind === 'video' ? 'video' : 'image'}?`}
+        confirmLabel={`Delete ${deleting?.kind === 'video' ? 'video' : 'image'}`}
         busy={busy}
         onCancel={() => setDeleting(null)}
         onConfirm={() => deleting && void remove(deleting)}

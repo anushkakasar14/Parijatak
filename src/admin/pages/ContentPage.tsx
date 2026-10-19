@@ -3,8 +3,8 @@ import type { FormEvent } from 'react'
 import { ApiError, adminFetch } from '../api'
 import { useAuth } from '../AuthContext'
 import { ErrorNotice, LoadingBlock, Notice, PageHeader } from '../components'
-import { MEDIA_LIST_ID, MediaLibraryList, TextArea, TextInput, useFormState, videoHint } from '../forms'
-import { MediaPicker } from '../media'
+import { MediaLibraryList, TextArea, TextInput, useFormState } from '../forms'
+import { MediaPicker, VideoPicker } from '../media'
 import { useApi } from '../hooks'
 import type { PageSection, SiteSettings } from '../types'
 import { cardClass, primaryButtonClass, secondaryButtonClass } from '../ui'
@@ -185,7 +185,18 @@ function GalleryForm({ initial, canEdit }: { initial: SiteSettings['gallery']['i
                 required
                 disabled={!canEdit}
               />
-              <TextInput id={`gallery-${i}-video`} label="Video (optional)" value={item.videoUrl} onChange={(v) => update(i, 'videoUrl', v)} list={MEDIA_LIST_ID} hint={videoHint} error={errors[`items.${i}.videoUrl`]} disabled={!canEdit} />
+              <VideoPicker
+                id={`gallery-${i}-video`}
+                label="Video (optional)"
+                value={item.videoUrl}
+                onChange={(v) => update(i, 'videoUrl', v)}
+                // With no picture yet, the video's first frame becomes it.
+                onPosterSuggested={(url) => !item.imageUrl && update(i, 'imageUrl', url)}
+                poster={item.imageUrl}
+                hint="Plays silently on a loop; the picture above is shown while it loads. MP4 or WebM, up to 100 MB — short clips under about 10 MB load best."
+                error={errors[`items.${i}.videoUrl`]}
+                disabled={!canEdit}
+              />
               <TextInput id={`gallery-${i}-alt`} label="Description" value={item.alt} onChange={(v) => update(i, 'alt', v)} error={errors[`items.${i}.alt`]} disabled={!canEdit} />
               {canEdit && (
                 <button type="button" onClick={() => setItems(items.filter((_, j) => j !== i))} className={`${secondaryButtonClass} text-red-700`}>

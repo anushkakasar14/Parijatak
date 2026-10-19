@@ -81,15 +81,21 @@ export async function adminFetch<T>(path: string, options: RequestOptions = {}):
 }
 
 /**
- * Uploads one image file. Uses XMLHttpRequest rather than fetch because only it reports
- * upload progress. The file is sent as-is; the server checks what it really is.
+ * Sends raw bytes (an image, or one piece of a video) with upload progress. Uses
+ * XMLHttpRequest rather than fetch because only it reports upload progress. The bytes are
+ * sent as they are; the server checks what they really are.
  */
-export function uploadFile<T>(path: string, file: File, onProgress?: (fraction: number) => void): Promise<T> {
+export function sendBinary<T>(
+  method: 'POST' | 'PUT',
+  path: string,
+  body: Blob,
+  headers: Record<string, string>,
+  onProgress?: (fraction: number) => void,
+): Promise<T> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    xhr.open('POST', `/api${path}`)
-    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
-    xhr.setRequestHeader('X-Filename', encodeURIComponent(file.name))
+    xhr.open(method, `/api${path}`)
+    for (const [name, value] of Object.entries(headers)) xhr.setRequestHeader(name, value)
     if (csrfToken) xhr.setRequestHeader('X-CSRF-Token', csrfToken)
 
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total)
@@ -111,6 +117,17 @@ export function uploadFile<T>(path: string, file: File, onProgress?: (fraction: 
       onActivity?.()
       resolve(payload?.data as T)
     }
-    xhr.send(file)
+    xhr.send(body)
   })
+}
+
+/** Uploads one image file. */
+export function uploadFile<T>(path: string, file: File, onProgress?: (fraction: number) => void): Promise<T> {
+  return sendBinary<T>(
+    'POST',
+    path,
+    file,
+    { 'Content-Type': file.type || 'application/octet-stream', 'X-Filename': encodeURIComponent(file.name) },
+    onProgress,
+  )
 }
