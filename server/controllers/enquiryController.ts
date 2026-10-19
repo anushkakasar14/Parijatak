@@ -37,7 +37,12 @@ function parseFilters(query: unknown) {
 export const enquiryController = {
   /** Public: contact form and product enquiries. */
   async create(req: Request, res: Response) {
-    const input = createEnquirySchema.parse(req.body)
+    const { contactPreference: trap, ...input } = createEnquirySchema.parse(req.body)
+    // Spam is answered exactly like a real enquiry, so the sender learns nothing — but not saved.
+    if (trap?.trim()) {
+      res.status(201).json({ success: true, message: 'Enquiry submitted successfully' })
+      return
+    }
     const { duplicate } = await enquiryService.submit(input)
     // Deliberately returns no record data — the public never needs it back.
     // A repeated submission gets the same success message, just without a second record.

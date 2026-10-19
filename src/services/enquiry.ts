@@ -24,7 +24,7 @@ const fieldNames: Record<string, keyof EnquiryData> = {
  * Sends an enquiry to the backend. Resolves only once the server has confirmed that it
  * was saved; otherwise throws EnquiryError and the form keeps what the visitor typed.
  */
-export async function submitEnquiry(data: EnquiryData, productId?: string): Promise<void> {
+export async function submitEnquiry(data: EnquiryData, productId?: string, trap = ''): Promise<void> {
   try {
     await api('/enquiries', {
       method: 'POST',
@@ -35,6 +35,7 @@ export async function submitEnquiry(data: EnquiryData, productId?: string): Prom
         inquiryType: data.inquiryType,
         message: data.message,
         productId,
+        ...(trap ? { contactPreference: trap } : {}),
       },
     })
   } catch (err) {

@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+# The admin area answers with "noindex", so it is never listed.
+
+Sitemap: https://www.studioparijatak.com/sitemap.xml

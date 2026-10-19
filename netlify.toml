@@ -10,6 +10,13 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+# One official address: the Netlify address sends everything to the real domain.
+[[redirects]]
+  from = "https://parijatak.netlify.app/*"
+  to = "https://www.studioparijatak.com/:splat"
+  status = 301
+  force = true
+
 # The API (server/) runs inside the "api" function
 [[redirects]]
   from = "/api/*"
@@ -21,3 +28,29 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Basic protections for every page (the API adds its own, stricter set).
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+
+# Built files have a fingerprint in their name, so a new release always gets new names.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Keep the admin area out of search results.
+[[headers]]
+  for = "/admin"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/admin/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"

@@ -55,7 +55,8 @@ export function ContactForm() {
     setStatus('submitting')
     try {
       // Shown as sent only after the server confirms the enquiry was saved.
-      await submitEnquiry(values)
+      const trap = formRef.current?.querySelector<HTMLInputElement>('[name="contactPreference"]')?.value ?? ''
+      await submitEnquiry(values, undefined, trap)
       setValues(emptyForm)
       setStatus('success')
     } catch (err) {
@@ -112,6 +113,11 @@ export function ContactForm() {
 
   return (
     <form ref={formRef} onSubmit={onSubmit} noValidate className="space-y-6">
+      {/* Left empty by people (it is hidden from them); automated spam fills it in. */}
+      <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
+        <label htmlFor="contactPreference">Leave this field empty</label>
+        <input id="contactPreference" name="contactPreference" type="text" tabIndex={-1} autoComplete="off" defaultValue="" />
+      </div>
       <div>
         <label htmlFor="fullName" className={labelClass}>
           Full Name

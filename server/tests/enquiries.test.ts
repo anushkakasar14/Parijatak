@@ -99,6 +99,21 @@ describe('POST /api/enquiries', () => {
     assert.equal(sheets.mock.calls[0].arguments[0].id, saved.id)
   })
 
+  test('a submission that fills in the hidden spam trap looks successful but is not kept', async () => {
+    const sheets = stubSheets(async () => {})
+
+    const res = await post({ ...validEnquiry, contactPreference: 'http://spam.example' })
+
+    assert.equal(res.status, 201)
+    assert.equal(((await res.json()) as any).success, true)
+    assert.equal(await countEnquiries(), 0)
+    assert.equal(sheets.mock.callCount(), 0)
+
+    // An empty trap (every real visitor) is an ordinary enquiry.
+    assert.equal((await post({ ...validEnquiry, contactPreference: '' })).status, 201)
+    assert.equal(await countEnquiries(), 1)
+  })
+
   test('invalid email is rejected', async () => {
     const res = await post({ ...validEnquiry, email: 'not-an-email' })
     const body = await res.json() as any

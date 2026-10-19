@@ -47,6 +47,8 @@ export const createEnquirySchema = z.object({
     .regex(/^[a-z0-9-]{1,64}$/, 'Invalid product')
     .nullish()
     .transform((v) => v || null),
+  /** Hidden from people; anything in it means an automated submission. */
+  contactPreference: z.string().max(500).optional(),
 })
 
 export type CreateEnquiryInput = z.infer<typeof createEnquirySchema>
