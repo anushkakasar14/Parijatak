@@ -62,7 +62,7 @@ export const defaultSettings: SiteSettings = {
   contact: {
     email: '',
     phone: '',
-    whatsappNumber: '917385087502',
+    whatsappNumber: '918080657140',
     addressName: 'Parijatak Home Textile Studio',
     addressLines: ['Ratndeep 4th Floor', 'Front of Dena Bank', 'Ghee Bazar', 'Nandurbar', '425412'],
   },

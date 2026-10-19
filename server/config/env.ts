@@ -77,7 +77,7 @@ const schema = z.object({
     .string()
     .trim()
     .regex(/^\d{10,15}$/, 'WHATSAPP_NUMBER must be digits only, with country code')
-    .default('917385087502'),
+    .default('918080657140'),
 })
 
 const parsed = schema.safeParse(process.env)

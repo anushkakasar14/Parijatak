@@ -4,7 +4,7 @@ export function buildWhatsappUrl(number: string, message?: string): string {
   return message ? `${base}?text=${encodeURIComponent(message)}` : base
 }
 
-/** 917385087502 → "+91 73850 87502". Other countries are shown as "+<digits>". */
+/** 918080657140 → "+91 80806 57140". Other countries are shown as "+<digits>". */
 export function formatWhatsappNumber(number: string): string {
   const indian = /^91(\d{5})(\d{5})$/.exec(number)
   return indian ? `+91 ${indian[1]} ${indian[2]}` : `+${number}`

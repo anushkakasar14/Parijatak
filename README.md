@@ -115,7 +115,7 @@ Set these in `.env` locally and in **Netlify → Site configuration → Environm
 | `CORS_ORIGINS` | if the API is on another domain | `http://localhost:5173` | Comma-separated origins allowed to call the API. Not needed when site and API share a domain, as on Netlify |
 | `TRUST_PROXY` | standalone server only | `0` | Number of reverse proxies in front of the server |
 | `PORT` | no | `4000` | Port for the standalone server |
-| `WHATSAPP_NUMBER` | no | `917385087502` | Digits only, with country code |
+| `WHATSAPP_NUMBER` | no | `918080657140` | Digits only, with country code |
 
 Frontend only: `VITE_API_URL` is needed **only if** the API is hosted on a different domain from the site. Nothing secret may ever go in a `VITE_` variable — those are shipped to the browser.
 

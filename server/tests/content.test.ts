@@ -131,7 +131,7 @@ describe('public products', () => {
     assert.equal(throws.categoryId, 'throws')
     assert.ok(throws.shortDescription)
     assert.equal(throws.images[0].url, throws.imageUrl)
-    assert.match(throws.whatsappEnquiryUrl, /^https:\/\/wa\.me\/917385087502\?text=/)
+    assert.match(throws.whatsappEnquiryUrl, /^https:\/\/wa\.me\/918080657140\?text=/)
     assert.equal(throws.status, undefined, 'internal status is not exposed')
   })
 
@@ -415,7 +415,7 @@ describe('homepage and site content', () => {
   test('contact and social settings update the public site details and WhatsApp links', async () => {
     const before = (await call('/site')).body.data
     assert.equal(before.brand.name, 'Parijatak')
-    assert.equal(before.contact.whatsappNumber, '917385087502')
+    assert.equal(before.contact.whatsappNumber, '918080657140')
 
     const contact = { ...before.contact, whatsappNumber: '919999900000', email: 'Hello@Parijatak.Example' }
     const saved = await call('/admin/settings/contact', { method: 'PUT', as: admin, body: contact })

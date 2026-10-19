@@ -265,7 +265,7 @@ export const settingSchemas = {
     whatsappNumber: z
       .string()
       .trim()
-      .regex(/^\d{10,15}$/, 'Digits only, with country code — e.g. 917385087502'),
+      .regex(/^\d{10,15}$/, 'Digits only, with country code — e.g. 918080657140'),
     addressName: z.string().transform(sanitizeLine).pipe(z.string().max(120)),
     addressLines: z.array(line(120, 'Address line')).max(8),
   }),

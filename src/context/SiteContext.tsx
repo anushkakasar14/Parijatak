@@ -10,7 +10,7 @@ interface SiteState {
   settings: SiteSettings
   /** wa.me link to the studio's number, with an optional pre-filled message. */
   whatsappUrl: (message?: string) => string
-  /** The WhatsApp number written for people, e.g. "+91 73850 87502". */
+  /** The WhatsApp number written for people, e.g. "+91 80806 57140". */
   whatsappDisplay: string
 }
 
