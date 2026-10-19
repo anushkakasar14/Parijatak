@@ -84,7 +84,7 @@ export default function About() {
       </section>
 
       {/* 6. Founder */}
-      <StorySection content={section('about.founder')} imageSide="right" />
+      <StorySection content={section('about.founder')} imageSide="right" imageFirstOnMobile={false} />
 
       {/* 7. Social links */}
       <section className="border-t border-line">
