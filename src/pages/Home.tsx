@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
-import { FadeIn, LoadError, Paragraphs, SmartLink } from '../components/Content'
+import { FadeIn, Paragraphs, SmartLink } from '../components/Content'
+import { FeaturedProducts } from '../components/FeaturedProducts'
 import { HeroCarousel, HeroFallback, HeroPlaceholder } from '../components/HeroCarousel'
 import { InstagramSection } from '../components/InstagramSection'
 import { Ornament } from '../components/Logo'
-import { ProductCard, ProductCardSkeleton } from '../components/ProductCard'
 import { SectionHeading } from '../components/SectionHeading'
 import { StorySection } from '../components/StorySection'
 import { WhatsAppButton } from '../components/WhatsAppButton'
@@ -11,9 +11,7 @@ import { usePageSections } from '../context/SiteContext'
 import { useResource } from '../hooks/useResource'
 import { useSeo } from '../hooks/useSeo'
 import { whatsappMessages } from '../lib/whatsapp'
-import type { HomepageData, Offer, Product } from '../types'
-
-const FEATURED_COUNT = 3
+import type { HomepageData, Offer } from '../types'
 
 /** A slim announcement band. Rendered only while an offer is published and in date. */
 function OfferBanner({ offer }: { offer: Offer }) {
@@ -39,41 +37,6 @@ function OfferBanner({ offer }: { offer: Offer }) {
         )}
       </div>
     </aside>
-  )
-}
-
-function FeaturedProducts() {
-  const { data: products, status, retry } = useResource<Product[]>('/products')
-
-  if (status === 'error') {
-    return <LoadError message="The collection could not be loaded." onRetry={retry} />
-  }
-
-  if (status === 'loading') {
-    return (
-      <div role="status" aria-label="Loading products" className="grid gap-x-8 gap-y-14 md:grid-cols-3">
-        {[0, 1, 2].map((i) => (
-          <ProductCardSkeleton key={i} />
-        ))}
-      </div>
-    )
-  }
-
-  // Featured products first; if none are marked, the first few of the collection.
-  const all = products ?? []
-  const featured = all.filter((p) => p.isFeatured)
-  const shown = (featured.length ? featured : all).slice(0, FEATURED_COUNT)
-
-  if (shown.length === 0) {
-    return <p className="text-muted">New pieces are on their way — please check back soon.</p>
-  }
-
-  return (
-    <div className="grid gap-x-8 gap-y-14 md:grid-cols-3">
-      {shown.map((product) => (
-        <ProductCard key={product.id} product={product} />
-      ))}
-    </div>
   )
 }
 

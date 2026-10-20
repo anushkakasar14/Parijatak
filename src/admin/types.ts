@@ -88,6 +88,7 @@ export interface AdminProduct {
   craftsmanship: string | null
   dimensions: string | null
   variants: string[]
+  sizes: { label: string; price: number | null }[]
   price: number | null
   offerPrice: number | null
   imageUrl: string

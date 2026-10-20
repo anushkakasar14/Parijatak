@@ -47,7 +47,12 @@ const optionalUrl = z
 
 const status = z.enum(publicationStatuses, 'Status must be draft, published or archived')
 const displayOrder = z.coerce.number().int().min(0).max(100_000)
-const money = z.coerce.number().min(0).max(10_000_000).nullable().optional()
+const money = z.coerce
+  .number('Enter a price in numbers')
+  .min(0, 'Price cannot be negative')
+  .max(10_000_000, 'Price is too high')
+  .nullable()
+  .optional()
 
 export const slugify = (value: string) =>
   value
@@ -72,6 +77,31 @@ const pagination = {
 
 // ── Products ────────────────────────────────────────────────────────────────────
 
+/** Sizes a product is made in; a price is given only when it differs from the product's. */
+const productSizes = z
+  .array(
+    z.strictObject({
+      label: line(80, 'Size'),
+      price: z
+        .number('Enter a price in numbers')
+        .min(0, 'Price cannot be negative')
+        .max(10_000_000, 'Price is too high')
+        .nullable()
+        .default(null),
+    }),
+  )
+  .max(20, 'Too many sizes')
+  .superRefine((sizes, ctx) => {
+    const seen = new Set<string>()
+    sizes.forEach((size, index) => {
+      const key = size.label.toLowerCase()
+      if (seen.has(key)) {
+        ctx.addIssue({ code: 'custom', path: [index, 'label'], message: 'This size is already listed' })
+      }
+      seen.add(key)
+    })
+  })
+
 const productFields = {
   name: line(120, 'Name'),
   slug: slug.optional(),
@@ -85,6 +115,7 @@ const productFields = {
   craftsmanship: optionalText(1000),
   dimensions: optionalLine(300),
   variants: z.array(line(80, 'Variant')).max(30, 'Too many variants'),
+  sizes: productSizes,
   price: money,
   offerPrice: money,
   imageUrl: url,
@@ -115,6 +146,7 @@ export const createProductSchema = z
   .strictObject({
     ...productFields,
     variants: productFields.variants.default([]),
+    sizes: productFields.sizes.default([]),
     additionalImages: productFields.additionalImages.default([]),
     customizationAvailable: productFields.customizationAvailable.default(true),
     isFeatured: productFields.isFeatured.default(false),

@@ -117,7 +117,7 @@ after(async () => {
 
 beforeEach(async () => {
   await sql(`DELETE FROM products WHERE id NOT IN ('bed-linens', 'cushion-covers', 'throws')`)
-  await sql(`UPDATE products SET status = 'published', image_url = '/media/shoot-bench.jpg', additional_images = '[]', category_id = id`)
+  await sql(`UPDATE products SET status = 'published', image_url = '/media/shoot-bench.jpg', additional_images = '[]', category_id = id, sizes = '[]', price = NULL, offer_price = NULL`)
   // The gallery table follows the picture columns reset above.
   await sql(`DELETE FROM product_images`)
   await sql(`INSERT INTO product_images (id, product_id, url, position, is_primary)
@@ -325,6 +325,95 @@ describe('products', () => {
     assert.ok(!(await call('/products')).body.data.some((p: any) => p.slug.startsWith('throws-copy')))
 
     assert.equal((await call('/admin/products/throws/duplicate', { method: 'POST', as: viewer })).status, 403)
+  })
+
+  test('sizes, with or without their own prices, are saved, shown publicly and can be changed', async () => {
+    const saved = await call('/admin/products/throws', {
+      method: 'PATCH',
+      as: admin,
+      body: {
+        price: 3000,
+        sizes: [
+          { label: 'Small — 2 ft × 4 ft', price: 1500 },
+          { label: 'Large — 2 ft × 8 ft', price: null },
+        ],
+      },
+    })
+    assert.equal(saved.status, 200)
+    assert.deepEqual(saved.body.data.sizes, [
+      { label: 'Small — 2 ft × 4 ft', price: 1500 },
+      { label: 'Large — 2 ft × 8 ft', price: null },
+    ])
+    assert.equal(saved.body.data.dimensions, 'Small — 2 ft × 4 ft, Large — 2 ft × 8 ft', 'older size text kept in step')
+
+    // Reopening the product and the public site both read the saved values.
+    assert.deepEqual((await call('/admin/products/throws', { as: admin })).body.data.sizes, saved.body.data.sizes)
+    const publicThrows = (await call('/products')).body.data.find((p: any) => p.id === 'throws')
+    assert.deepEqual(publicThrows.sizes, saved.body.data.sizes)
+    assert.equal(publicThrows.price, 3000)
+
+    // Edit one, remove one.
+    const edited = await call('/admin/products/throws', {
+      method: 'PATCH',
+      as: admin,
+      body: { sizes: [{ label: 'Small — 2 ft × 4 ft', price: 1800 }] },
+    })
+    assert.deepEqual(edited.body.data.sizes, [{ label: 'Small — 2 ft × 4 ft', price: 1800 }])
+
+    // A change to something else leaves the sizes alone; clearing them clears the text too.
+    await call('/admin/products/throws', { method: 'PATCH', as: admin, body: { shortDescription: 'Warm and light' } })
+    assert.equal((await call('/admin/products/throws', { as: admin })).body.data.sizes.length, 1)
+    const cleared = await call('/admin/products/throws', { method: 'PATCH', as: admin, body: { sizes: [], price: null } })
+    assert.deepEqual(cleared.body.data.sizes, [])
+    assert.equal(cleared.body.data.dimensions, null)
+    assert.equal(cleared.body.data.price, null)
+
+    // Copies keep their sizes.
+    await call('/admin/products/throws', { method: 'PATCH', as: admin, body: { sizes: [{ label: 'One size', price: 999 }] } })
+    const copy = await call('/admin/products/throws/duplicate', { method: 'POST', as: admin })
+    assert.deepEqual(copy.body.data.sizes, [{ label: 'One size', price: 999 }])
+  })
+
+  test('a new product can be created with sizes, and without', async () => {
+    const base = { categoryId: 'throws', description: 'Handwoven wool.', imageUrl: '/media/shoot-bench.jpg' }
+    const withSizes = await call('/admin/products', {
+      method: 'POST',
+      as: admin,
+      body: { ...base, name: 'Test Ghongadi', price: 1500, sizes: [{ label: 'Small' }, { label: 'Large', price: 2500 }] },
+    })
+    assert.equal(withSizes.status, 201)
+    assert.deepEqual(withSizes.body.data.sizes, [
+      { label: 'Small', price: null },
+      { label: 'Large', price: 2500 },
+    ])
+    assert.equal(withSizes.body.data.dimensions, 'Small, Large')
+
+    const plain = await call('/admin/products', { method: 'POST', as: admin, body: { ...base, name: 'Test Plain' } })
+    assert.equal(plain.status, 201)
+    assert.deepEqual(plain.body.data.sizes, [])
+    assert.equal(plain.body.data.price, null)
+  })
+
+  test('invalid prices and sizes are refused, and only administrators may change them', async () => {
+    const patch = (body: unknown, as: typeof admin | null = admin) =>
+      call('/admin/products/throws', { method: 'PATCH', as, body })
+
+    const negative = await patch({ sizes: [{ label: 'Small', price: -5 }] })
+    assert.equal(negative.status, 400)
+    assert.equal(negative.body.errors['sizes.0.price'], 'Price cannot be negative')
+
+    const duplicate = await patch({ sizes: [{ label: 'Small', price: 100 }, { label: ' small ', price: 200 }] })
+    assert.equal(duplicate.status, 400)
+    assert.equal(duplicate.body.errors['sizes.1.label'], 'This size is already listed')
+
+    assert.equal((await patch({ sizes: [{ label: '   ', price: 100 }] })).status, 400)
+    assert.equal((await patch({ sizes: [{ label: 'Small', price: 'lots' }] })).status, 400)
+    assert.equal((await patch({ sizes: Array.from({ length: 21 }, (_, i) => ({ label: `Size ${i}` })) })).status, 400)
+    assert.equal((await patch({ price: -1 })).status, 400)
+
+    assert.equal((await patch({ sizes: [{ label: 'Small' }] }, viewer)).status, 403)
+    assert.equal((await patch({ sizes: [{ label: 'Small' }] }, null)).status, 401)
+    assert.deepEqual((await call('/admin/products/throws', { as: admin })).body.data.sizes, [], 'nothing was saved')
   })
 })
 

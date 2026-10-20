@@ -19,6 +19,8 @@ import { Checkbox, MediaLibraryList, SelectInput, TextArea, TextInput, useFormSt
 import { useApi, useDebounced } from '../hooks'
 import { MediaImage } from '../media'
 import { ProductGallery } from '../ProductGallery'
+import { SizesEditor, checkSizes, draftSize, sizesForSaving } from '../SizesEditor'
+import type { DraftSize } from '../SizesEditor'
 import type { DraftImage } from '../ProductGallery'
 import { statusOptions } from '../types'
 import type { AdminProduct, Category, Paginated, PublicationStatus } from '../types'
@@ -53,7 +55,8 @@ interface ProductForm {
   description: string
   material: string
   craftsmanship: string
-  dimensions: string
+  /** Sizes, each with an optional price of its own. */
+  sizes: DraftSize[]
   variants: string
   price: string
   offerPrice: string
@@ -73,7 +76,7 @@ const toForm = (product: AdminProduct | null, categories: Category[]): ProductFo
   description: product?.description ?? '',
   material: product?.material ?? '',
   craftsmanship: product?.craftsmanship ?? '',
-  dimensions: product?.dimensions ?? '',
+  sizes: (product?.sizes ?? []).map((size) => draftSize(size.label, size.price?.toString() ?? '')),
   variants: product?.variants.join('\n') ?? '',
   price: product?.price?.toString() ?? '',
   offerPrice: product?.offerPrice?.toString() ?? '',
@@ -122,6 +125,12 @@ function ProductEditor({
       setFailure('Please check the details you entered.')
       return
     }
+    const sizeProblems = checkSizes(values.sizes)
+    if (Object.keys(sizeProblems).length) {
+      setErrors(sizeProblems)
+      setFailure('Please check the sizes.')
+      return
+    }
     setSaving(true)
     setErrors({})
     setFailure(null)
@@ -136,7 +145,7 @@ function ProductEditor({
       description: values.description,
       material: values.material,
       craftsmanship: values.craftsmanship,
-      dimensions: values.dimensions,
+      sizes: sizesForSaving(values.sizes),
       variants: values.variants
         .split(/\n|,/)
         .map((v) => v.trim())
@@ -241,7 +250,6 @@ function ProductEditor({
             rows={3}
             maxLength={1000}
           />
-          <TextInput id="product-dimensions" label="Size (optional)" value={values.dimensions} onChange={set('dimensions')} error={errors.dimensions} placeholder="130 × 180 cm" maxLength={300} />
           <TextArea
             id="product-variants"
             label="Colours or variants (optional)"
@@ -254,7 +262,15 @@ function ProductEditor({
         </div>
 
         <div className="grid gap-5 sm:grid-cols-3">
-          <TextInput id="product-price" label="Price in ₹ (optional)" type="number" value={values.price} onChange={set('price')} error={errors.price} />
+          <TextInput
+            id="product-price"
+            label="Price in ₹ (optional)"
+            type="number"
+            value={values.price}
+            onChange={set('price')}
+            error={errors.price}
+            hint="Leave empty to show “Price on enquiry”."
+          />
           <TextInput
             id="product-offer"
             label="Offer price in ₹ (optional)"
@@ -273,6 +289,8 @@ function ProductEditor({
             hint="Lower numbers come first."
           />
         </div>
+
+        <SizesEditor sizes={values.sizes} onChange={set('sizes')} errors={errors} disabled={saving} />
 
         <div className="space-y-3">
           <Checkbox

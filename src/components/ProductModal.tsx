@@ -1,30 +1,27 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { formatRupees, pricedBySize, sizePrice } from '../../shared/productPricing'
 import { whatsappMessages } from '../lib/whatsapp'
 import type { Product } from '../types'
 import { CloseIcon } from './Icons'
 import { ProductImages } from './ProductImages'
+import { ProductPrice } from './ProductPrice'
 import { WhatsAppButton } from './WhatsAppButton'
 
-const rupees = new Intl.NumberFormat('en-IN', {
-  style: 'currency',
-  currency: 'INR',
-  maximumFractionDigits: 0,
-})
-
-function Price({ price, offerPrice }: { price: number; offerPrice: number | null }) {
-  if (offerPrice !== null && offerPrice < price) {
-    return (
-      <>
-        <span className="font-medium">{rupees.format(offerPrice)}</span>{' '}
-        <s className="text-muted">
-          <span className="sr-only">was </span>
-          {rupees.format(price)}
-        </s>
-      </>
-    )
-  }
-  return <>{rupees.format(price)}</>
+/** Each size with what it costs, for products whose sizes are priced differently. */
+function SizePrices({ product }: { product: Product }) {
+  return (
+    <ul className="space-y-1">
+      {product.sizes.map((size) => {
+        const price = sizePrice(product, size)
+        return (
+          <li key={size.label}>
+            {size.label} — {price === null ? 'price on enquiry' : formatRupees(price)}
+          </li>
+        )
+      })}
+    </ul>
+  )
 }
 
 interface ProductModalProps {
@@ -51,10 +48,14 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
   // Only details that have actually been filled in are shown.
   const details: [string, ReactNode][] = product
     ? ([
-        ['Price', product.price !== null && <Price price={product.price} offerPrice={product.offerPrice} />],
+        pricedBySize(product)
+          ? ['Sizes & prices', <SizePrices product={product} />]
+          : ['Price', <ProductPrice product={product} className="text-sm" />],
         ['Material', product.material],
         ['Craftsmanship', product.craftsmanship],
-        ['Dimensions', product.dimensions],
+        pricedBySize(product)
+          ? ['Sizes', null]
+          : ['Sizes', product.sizes.length ? product.sizes.map((size) => size.label).join(' | ') : product.dimensions],
         ['Available in', product.variants.join(', ')],
         [
           'Customization',

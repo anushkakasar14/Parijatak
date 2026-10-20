@@ -1,3 +1,4 @@
+import type { ProductSize } from '../../shared/productPricing.ts'
 import { randomUUID } from 'node:crypto'
 import { getDb } from '../config/database.ts'
 import { buildUpdate, toIso, translateConstraintError } from '../utils/sql.ts'
@@ -24,6 +25,8 @@ export interface Product {
   craftsmanship: string | null
   dimensions: string | null
   variants: string[]
+  /** Sizes the product is made in; a size's price is set only when it differs. */
+  sizes: ProductSize[]
   price: number | null
   offerPrice: number | null
   imageUrl: string
@@ -53,6 +56,7 @@ interface ProductRow {
   craftsmanship: string | null
   dimensions: string | null
   variants: string[]
+  sizes: ProductSize[] | null
   price: string | number | null
   offer_price: string | number | null
   image_url: string
@@ -85,6 +89,7 @@ function toProduct(row: ProductRow): Product {
     craftsmanship: row.craftsmanship,
     dimensions: row.dimensions,
     variants: row.variants,
+    sizes: (row.sizes ?? []).map((size) => ({ label: size.label, price: size.price ?? null })),
     price: numberOrNull(row.price),
     offerPrice: numberOrNull(row.offer_price),
     imageUrl: row.image_url,
@@ -125,6 +130,7 @@ export interface ProductInput {
   craftsmanship: string | null
   dimensions: string | null
   variants: string[]
+  sizes: ProductSize[]
   price: number | null
   offerPrice: number | null
   imageUrl: string
@@ -146,6 +152,7 @@ const columns: Record<keyof ProductInput, string> = {
   craftsmanship: 'craftsmanship',
   dimensions: 'dimensions',
   variants: 'variants',
+  sizes: 'sizes',
   price: 'price',
   offerPrice: 'offer_price',
   imageUrl: 'image_url',
@@ -265,9 +272,11 @@ export const productModel = {
           `INSERT INTO products
              (id, name, slug, category, category_id, short_description, description, material,
               craftsmanship, dimensions, variants, price, offer_price, image_url, image_alt,
-              additional_images, customization_available, is_featured, display_order, status, is_active)
+              additional_images, customization_available, is_featured, display_order, status, is_active,
+              sizes)
            VALUES ($1, $2, $3, (SELECT name FROM categories WHERE id = $4), $4, $5, $6, $7, $8, $9,
-                   $10::jsonb, $11, $12, $13, $14, $15::jsonb, $16, $17, $18, $19, $19 = 'published')`,
+                   $10::jsonb, $11, $12, $13, $14, $15::jsonb, $16, $17, $18, $19, $19 = 'published',
+                   $20::jsonb)`,
           [
             id,
             input.name,
@@ -288,6 +297,7 @@ export const productModel = {
             input.isFeatured,
             input.displayOrder,
             input.status,
+            JSON.stringify(input.sizes ?? []),
           ],
         )
         await productImageModel.replaceAll(tx, id, [
@@ -302,7 +312,7 @@ export const productModel = {
   },
 
   async update(id: string, patch: Partial<ProductInput>): Promise<Product | null> {
-    const { assignments, params } = buildUpdate(patch, columns, ['variants', 'additionalImages'])
+    const { assignments, params } = buildUpdate(patch, columns, ['variants', 'sizes', 'additionalImages'])
     if (!assignments) return this.findById(id)
 
     const db = await getDb()
@@ -363,10 +373,10 @@ export const productModel = {
         `INSERT INTO products
            (id, name, slug, category, category_id, short_description, description, material, craftsmanship,
             dimensions, variants, price, offer_price, image_url, image_alt, additional_images,
-            customization_available, is_featured, display_order, status, is_active)
+            customization_available, is_featured, display_order, status, is_active, sizes)
          SELECT $1, left(name || ' (copy)', 120), $2, category, category_id, short_description, description,
                 material, craftsmanship, dimensions, variants, price, offer_price, image_url, image_alt,
-                additional_images, customization_available, FALSE, display_order, 'draft', FALSE
+                additional_images, customization_available, FALSE, display_order, 'draft', FALSE, sizes
            FROM products WHERE id = $3`,
         [newId, slug, id],
       )

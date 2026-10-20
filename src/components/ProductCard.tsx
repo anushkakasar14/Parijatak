@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Product } from '../types'
 import { Skeleton } from './Content'
 import { ArrowRightIcon } from './Icons'
+import { ProductPrice, ProductSizes } from './ProductPrice'
 import { useProductModal } from './ProductModal'
 
 interface ProductCardProps {
@@ -47,7 +48,9 @@ export function ProductCard({
       <div className="mt-5">
         {showCategory && <p className="eyebrow mb-2">{product.category}</p>}
         <h3 className="text-3xl md:text-4xl">{product.name}</h3>
-        <p className="mt-2 max-w-sm text-muted">
+        <ProductPrice product={product} className="mt-2 text-lg" />
+        <ProductSizes product={product} className="mt-1" />
+        <p className="mt-3 max-w-sm text-muted">
           {product.shortDescription ?? product.description}
         </p>
         <button type="button" onClick={open} aria-haspopup="dialog" className="text-link mt-4">

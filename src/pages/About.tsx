@@ -1,4 +1,6 @@
+import { Link } from 'react-router-dom'
 import { FadeIn, Paragraphs, SmartLink } from '../components/Content'
+import { FeaturedProducts } from '../components/FeaturedProducts'
 import { Ornament } from '../components/Logo'
 import { SectionHeading } from '../components/SectionHeading'
 import { SocialLinks } from '../components/SocialLinks'
@@ -64,6 +66,19 @@ export default function About() {
 
       {/* 4. Contemporary living */}
       <StorySection content={section('about.living')} aspect="aspect-[4/3]" />
+
+      {/* 4b. A few pieces from the collection, with their prices and sizes */}
+      <section className="border-t border-line">
+        <div className="container-page py-20 md:py-28">
+          <div className="mb-12 flex flex-wrap items-end justify-between gap-6 md:mb-16">
+            <SectionHeading eyebrow="The collection" title="Pieces from the studio" />
+            <Link to="/collection" className="text-link">
+              View the full collection
+            </Link>
+          </div>
+          <FeaturedProducts />
+        </div>
+      </section>
 
       {/* 5. Personalized design */}
       <section className="bg-maroon text-ivory">

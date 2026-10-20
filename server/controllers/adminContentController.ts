@@ -49,6 +49,9 @@ async function requireCategory(categoryId: string) {
   }
 }
 
+/** The older one-line "size" text, kept in step with the sizes list for older readers. */
+const sizesText = (sizes: { label: string }[]) => (sizes.length ? sizes.map((size) => size.label).join(', ').slice(0, 300) : null)
+
 export const adminContentController = {
   // ── Products ──────────────────────────────────────────────────────────────────
 
@@ -80,6 +83,7 @@ export const adminContentController = {
       })
     }
 
+    if (input.sizes.length) input.dimensions = sizesText(input.sizes)
     const product = await productModel.create({
       ...withNulls(input, [
         'shortDescription',
@@ -99,6 +103,7 @@ export const adminContentController = {
     const { id } = idParam.parse(req.params)
     const patch = updateProductSchema.parse(req.body)
     if (patch.categoryId) await requireCategory(patch.categoryId)
+    if (patch.sizes) patch.dimensions = sizesText(patch.sizes)
 
     const product = await productModel.update(id, patch as Partial<ProductInput>)
     if (!product) throw notFound('Product')

@@ -345,4 +345,17 @@ export const migrations: Migration[] = [
       )`,
     ],
   },
+  {
+    version: 9,
+    name: 'product_sizes',
+    // Additive: a product can list the sizes it is made in, each with an optional price of
+    // its own. The free-text size already saved becomes the first entry; nothing else
+    // changes. Undo: ALTER TABLE products DROP COLUMN sizes.
+    statements: [
+      `ALTER TABLE products ADD COLUMN sizes JSONB NOT NULL DEFAULT '[]'`,
+      `UPDATE products
+          SET sizes = jsonb_build_array(jsonb_build_object('label', btrim(dimensions), 'price', NULL))
+        WHERE dimensions IS NOT NULL AND btrim(dimensions) <> ''`,
+    ],
+  },
 ]

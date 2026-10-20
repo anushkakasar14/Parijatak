@@ -1,4 +1,5 @@
 import type { GalleryItem, SectionContent, SlideContent } from '../shared/defaultContent'
+import type { ProductSize } from '../shared/productPricing'
 
 export type { GalleryItem, SectionContent, SiteSettings } from '../shared/defaultContent'
 
@@ -15,6 +16,8 @@ export interface Product {
   craftsmanship: string | null
   dimensions: string | null
   variants: string[]
+  /** Sizes the product is made in; a size's price is set only when it differs. */
+  sizes: ProductSize[]
   price: number | null
   offerPrice: number | null
   imageUrl: string
